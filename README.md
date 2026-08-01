@@ -1,32 +1,32 @@
 # tela2
 
-Servidor simples do overlay **Assistindo Agora**.
+Servidor do overlay **Assistindo Agora**.
 
-Arquivos do repositório:
+## Render
 
-- `README.md`
-- `README.txt`
-- `package.json`
-- `server.js`
-
-Render:
+Use exatamente:
 
 ```text
-Build Command: npm start
-Start Command: npm install
+Build Command: npm install
+Start Command: npm start
+Health Check Path: /ping
 ```
 
-Comandos:
+## Comandos
 
 ```text
-!tf Nome do filme 2024
-!ts Nome da série 2024
-```
-
-## Série com episódio e temporada
-
-```text
+!tf Alien 1979
+!ts Elite 2018
 !ts Elite EP1 - T2
+!ts Elite T2 - EP1
 ```
 
-A TMDB pesquisa somente `Elite`, e o overlay mostra `Elite EP1 - T2`.
+O canal `icarolinaporto` já está incluído no código.
+
+## Diagnóstico
+
+```text
+https://tela2.onrender.com/health
+```
+
+`joinedChannels` deve conter `icarolinaporto`.

@@ -1,22 +1,24 @@
-TELA2
+TELA2 - COMANDOS CORRIGIDOS
 
-Build Command: npm start
-Start Command: npm install
+Arquivos na raiz:
+README.md
+README.txt
+package.json
+server.js
 
-Comandos:
-!tf Nome do filme 2024
-!ts Nome da serie 2024
+RENDER:
+Build Command: npm install
+Start Command: npm start
+Health Check Path: /ping
 
-Correções:
-- todos podem usar os comandos;
-- cada canal é conectado separadamente;
-- dados enviados ao StreamElements imediatamente.
-
-Novo formato para série com episódio e temporada:
+COMANDOS:
+!tf Alien 1979
+!ts Elite 2018
 !ts Elite EP1 - T2
+!ts Elite T2 - EP1
 
-Exibição no overlay:
-ESTAMOS ASSISTINDO
-Elite EP1 - T2
+CANAL:
+icarolinaporto
 
-A busca na TMDB usa somente "Elite".
+DIAGNOSTICO:
+https://tela2.onrender.com/health

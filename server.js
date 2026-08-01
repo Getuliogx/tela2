@@ -5,43 +5,42 @@ const tls = require("tls");
 const fs = require("fs");
 const path = require("path");
 
-const IS_BUILD = process.argv.includes("--build");
-const IS_POSTINSTALL = process.argv.includes("--postinstall");
+const PORT = Number(process.env.PORT || 10000);
 
 /*
-  Configuração atual do Render:
-  Build Command: npm start
-  Start Command: npm install
+  O canal correto aparece no projeto como icarolinaporto.
+  Ele é sempre incluído, mesmo que exista uma variável antiga e errada no Render.
 */
-if (IS_BUILD) {
-  console.log("[build] OK");
-  process.exit(0);
-}
-
-if (IS_POSTINSTALL && !process.env.PORT) {
-  console.log("[install] OK");
-  process.exit(0);
-}
-
-const PORT = Number(process.env.PORT || 10000);
-const CHANNELS = String(
-  process.env.TWITCH_CHANNEL || "icarolinaporto,yzgxx"
-)
+const configuredChannels = String(process.env.TWITCH_CHANNEL || "")
   .split(",")
   .map(value => value.trim().replace(/^#/, "").toLowerCase())
   .filter(Boolean);
 
-const TMDB_BEARER = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJiMDk1Y2NiYmIxODVkMjc3MDNkMDA3YWUwZGVkNWY3ZCIsIm5iZiI6MTc3NjYxMTUzMS4yNTQwMDAyLCJzdWIiOiI2OWU0ZjBjYmE2ZjVkMTQyYzc0YjMyYzkiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.F0r1SSOo4SeBFIWtOzE6mkYNjXTZgVRdrVCT0qDPVYA";
-const TMDB_API_KEY = "b095ccbbb185d27703d007ae0ded5f7d";
+const CHANNELS = [...new Set(["icarolinaporto", ...configuredChannels])];
+
+const TMDB_BEARER = String(
+  process.env.TMDB_BEARER ||
+  "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJiMDk1Y2NiYmIxODVkMjc3MDNkMDA3YWUwZGVkNWY3ZCIsIm5iZiI6MTc3NjYxMTUzMS4yNTQwMDAyLCJzdWIiOiI2OWU0ZjBjYmE2ZjVkMTQyYzc0YjMyYzkiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.F0r1SSOo4SeBFIWtOzE6mkYNjXTZgVRdrVCT0qDPVYA"
+).trim();
+
+const TMDB_API_KEY = String(
+  process.env.TMDB_API_KEY ||
+  "b095ccbbb185d27703d007ae0ded5f7d"
+).trim();
 
 const STATE_FILE = path.join(__dirname, "state.json");
-let state = loadState();
 
-let socket = null;
-let buffer = "";
+let state = loadState();
+let irc = null;
+let ircBuffer = "";
 let reconnectTimer = null;
 let reconnectAttempt = 0;
-const streams = new Set();
+let joinedChannels = new Set();
+let lastChatAt = null;
+let lastCommand = null;
+let lastError = null;
+
+const eventClients = new Set();
 
 function validState(value) {
   return Boolean(
@@ -70,7 +69,7 @@ function saveState() {
   }
 }
 
-function commonHeaders(contentType = "application/json; charset=utf-8") {
+function responseHeaders(contentType = "application/json; charset=utf-8") {
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
@@ -80,10 +79,10 @@ function commonHeaders(contentType = "application/json; charset=utf-8") {
   };
 }
 
-function sendText(response, status, value) {
-  const body = String(value);
+function sendText(response, status, text) {
+  const body = String(text);
   response.writeHead(status, {
-    ...commonHeaders("text/plain; charset=utf-8"),
+    ...responseHeaders("text/plain; charset=utf-8"),
     "Content-Length": Buffer.byteLength(body)
   });
   response.end(body);
@@ -92,23 +91,23 @@ function sendText(response, status, value) {
 function sendJson(response, status, value) {
   const body = JSON.stringify(value);
   response.writeHead(status, {
-    ...commonHeaders(),
+    ...responseHeaders(),
     "Content-Length": Buffer.byteLength(body)
   });
   response.end(body);
 }
 
-function sendEvent(response, value) {
+function sendStateEvent(response, value) {
   response.write("event: state\n");
   response.write(`data: ${JSON.stringify(value)}\n\n`);
 }
 
-function broadcast() {
-  for (const response of [...streams]) {
+function broadcastState() {
+  for (const response of [...eventClients]) {
     try {
-      sendEvent(response, state);
+      sendStateEvent(response, state);
     } catch {
-      streams.delete(response);
+      eventClients.delete(response);
     }
   }
 }
@@ -119,7 +118,7 @@ function firstYear(value) {
     : "";
 }
 
-function normalize(value) {
+function normalizeText(value) {
   return String(value || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -141,33 +140,36 @@ function yearOf(item, type) {
   return firstYear(type === "tv" ? item.first_air_date : item.release_date);
 }
 
-function score(item, type, requestedTitle, requestedYear) {
-  const wanted = normalize(requestedTitle);
-  const title = normalize(titleOf(item, type));
-  const original = normalize(originalTitleOf(item, type));
+function scoreResult(item, type, requestedTitle, requestedYear) {
+  const wanted = normalizeText(requestedTitle);
+  const localized = normalizeText(titleOf(item, type));
+  const original = normalizeText(originalTitleOf(item, type));
   const year = yearOf(item, type);
 
-  let points = 0;
+  let score = 0;
 
-  if (title === wanted) points += 1000;
-  if (original === wanted) points += 950;
-  if (title.startsWith(wanted) || wanted.startsWith(title)) points += 300;
-  if (original.startsWith(wanted) || wanted.startsWith(original)) points += 260;
-  if (title.includes(wanted) || original.includes(wanted)) points += 120;
-  if (requestedYear) points += year === requestedYear ? 700 : -350;
-  if (item.poster_path) points += 25;
+  if (localized === wanted) score += 1000;
+  if (original === wanted) score += 950;
+  if (localized.startsWith(wanted) || wanted.startsWith(localized)) score += 300;
+  if (original.startsWith(wanted) || wanted.startsWith(original)) score += 260;
+  if (localized.includes(wanted) || original.includes(wanted)) score += 120;
+  if (requestedYear) score += year === requestedYear ? 700 : -350;
+  if (item.poster_path) score += 25;
 
-  return points + Math.min(Number(item.popularity || 0), 100) / 10;
+  return score + Math.min(Number(item.popularity || 0), 100) / 10;
 }
 
 async function searchTmdb(type, query, year) {
   const url = new URL(`https://api.themoviedb.org/3/search/${type}`);
 
-  url.searchParams.set("api_key", TMDB_API_KEY);
   url.searchParams.set("language", "pt-BR");
   url.searchParams.set("include_adult", "false");
   url.searchParams.set("query", query);
   url.searchParams.set("page", "1");
+
+  if (TMDB_API_KEY) {
+    url.searchParams.set("api_key", TMDB_API_KEY);
+  }
 
   if (year) {
     url.searchParams.set(
@@ -176,41 +178,44 @@ async function searchTmdb(type, query, year) {
     );
   }
 
+  const headers = { accept: "application/json" };
+
+  if (TMDB_BEARER) {
+    headers.Authorization = `Bearer ${TMDB_BEARER}`;
+  }
+
   const response = await fetch(url, {
-    headers: {
-      accept: "application/json",
-      Authorization: `Bearer ${TMDB_BEARER}`
-    },
+    headers,
     signal: AbortSignal.timeout(15000)
   });
 
   if (!response.ok) {
-    throw new Error(`TMDB ${response.status}`);
+    throw new Error(`TMDB respondeu ${response.status}`);
   }
 
   const payload = await response.json();
   const results = Array.isArray(payload.results) ? payload.results : [];
 
   if (!results.length) {
-    throw new Error("Título não encontrado");
+    throw new Error("Título não encontrado na TMDB");
   }
 
-  const item = results
+  const selected = results
     .map(item => ({
       item,
-      points: score(item, type, query, year)
+      score: scoreResult(item, type, query, year)
     }))
-    .sort((left, right) => right.points - left.points)[0].item;
+    .sort((left, right) => right.score - left.score)[0].item;
 
   return {
     revision: Date.now(),
     type,
-    tmdbId: item.id,
-    title: titleOf(item, type) || query,
-    year: yearOf(item, type) || year || "",
+    tmdbId: selected.id,
+    title: titleOf(selected, type) || query,
+    year: yearOf(selected, type) || year || "",
     typeLabel: type === "tv" ? "Série" : "Filme",
-    poster: item.poster_path
-      ? `https://image.tmdb.org/t/p/w342${item.poster_path}`
+    poster: selected.poster_path
+      ? `https://image.tmdb.org/t/p/w342${selected.poster_path}`
       : "",
     updatedAt: new Date().toISOString()
   };
@@ -229,17 +234,22 @@ function parseTitleAndYear(raw) {
   }
 
   const title = match[1].trim();
-  return title ? { title, year: match[2] } : null;
+
+  return title
+    ? { title, year: match[2] }
+    : null;
 }
 
-function parseSeriesCommand(raw) {
+function parseSeries(raw) {
   const value = String(raw || "").trim();
   if (!value) return null;
 
-  // Exemplo aceito: !ts Elite EP1 - T2
-  let match = value.match(
-    /^(.*?)\s+(?:EP|E)\s*0*(\d+)\s*(?:[-–—]\s*)?(?:T|TEMP|TEMPORADA)\s*0*(\d+)\s*$/i
-  );
+  const patterns = [
+    /^(.*?)\s+(?:EP|E)\s*0*(\d+)\s*(?:[-–—]\s*)?(?:T|TEMP|TEMPORADA)\s*0*(\d+)\s*$/i,
+    /^(.*?)\s+(?:T|TEMP|TEMPORADA)\s*0*(\d+)\s*(?:[-–—]\s*)?(?:EP|E)\s*0*(\d+)\s*$/i
+  ];
+
+  let match = value.match(patterns[0]);
 
   if (match) {
     const title = match[1].trim();
@@ -257,10 +267,7 @@ function parseSeriesCommand(raw) {
     };
   }
 
-  // Também aceita: !ts Elite T2 - EP1
-  match = value.match(
-    /^(.*?)\s+(?:T|TEMP|TEMPORADA)\s*0*(\d+)\s*(?:[-–—]\s*)?(?:EP|E)\s*0*(\d+)\s*$/i
-  );
+  match = value.match(patterns[1]);
 
   if (match) {
     const title = match[1].trim();
@@ -291,6 +298,75 @@ function commandArgument(message, command) {
   return text.slice(command.length).trim();
 }
 
+async function applyCommand(type, parsed, username) {
+  try {
+    lastError = null;
+
+    /*
+      Em séries com episódio, a TMDB recebe apenas o nome da série.
+      Exemplo: "Elite EP1 - T2" pesquisa somente "Elite".
+    */
+    const tmdbResult = await searchTmdb(type, parsed.title, parsed.year);
+
+    const displayTitle =
+      type === "tv" && parsed.episodeText
+        ? `${tmdbResult.title} ${parsed.episodeText}`
+        : tmdbResult.title;
+
+    state = {
+      ...tmdbResult,
+      baseTitle: tmdbResult.title,
+      title: displayTitle,
+      displayTitle,
+      displayText: `Estamos assistindo ${displayTitle}`,
+      episode: parsed.episode || null,
+      season: parsed.season || null,
+      updatedBy: username || "chat"
+    };
+
+    lastCommand = {
+      command: type === "tv" ? "!ts" : "!tf",
+      text: displayTitle,
+      user: username || "chat",
+      at: new Date().toISOString()
+    };
+
+    saveState();
+    broadcastState();
+
+    console.log(`[comando] ${state.displayText}`);
+  } catch (error) {
+    lastError = error.message;
+    console.error("[comando]", error.message);
+  }
+}
+
+function handleChatMessage(username, message) {
+  lastChatAt = new Date().toISOString();
+
+  let argument = commandArgument(message, "!tf");
+
+  if (argument !== null) {
+    const parsed = parseTitleAndYear(argument);
+
+    if (parsed) {
+      applyCommand("movie", parsed, username);
+    }
+
+    return;
+  }
+
+  argument = commandArgument(message, "!ts");
+
+  if (argument !== null) {
+    const parsed = parseSeries(argument);
+
+    if (parsed) {
+      applyCommand("tv", parsed, username);
+    }
+  }
+}
+
 function decodeTag(value) {
   return String(value || "")
     .replace(/\\s/g, " ")
@@ -313,59 +389,20 @@ function parseTags(raw) {
   return tags;
 }
 
-async function applyCommand(type, parsed, username) {
-  try {
-    // A TMDB recebe apenas o nome da série. EP/T são usados somente na exibição.
-    const next = await searchTmdb(type, parsed.title, parsed.year);
-
-    const displayTitle =
-      type === "tv" && parsed.episodeText
-        ? `${next.title} ${parsed.episodeText}`
-        : next.title;
-
-    state = {
-      ...next,
-      baseTitle: next.title,
-      title: displayTitle,
-      displayTitle,
-      displayText: `Estamos assistindo ${displayTitle}`,
-      episode: parsed.episode || null,
-      season: parsed.season || null,
-      updatedBy: username || "chat"
-    };
-
-    saveState();
-    broadcast();
-
-    console.log(`[comando] ${state.displayText}`);
-  } catch (error) {
-    console.error("[tmdb]", error.message);
-  }
-}
-
-function handleMessage(username, message) {
-  let argument = commandArgument(message, "!tf");
-
-  if (argument !== null) {
-    const parsed = parseTitleAndYear(argument);
-    if (parsed) applyCommand("movie", parsed, username);
-    return;
-  }
-
-  argument = commandArgument(message, "!ts");
-
-  if (argument !== null) {
-    const parsed = parseSeriesCommand(argument);
-    if (parsed) applyCommand("tv", parsed, username);
-  }
-}
-
 function writeIrc(line) {
-  if (!socket || socket.destroyed) return;
-  socket.write(`${line}\r\n`);
+  if (!irc || irc.destroyed) return;
+  irc.write(`${line}\r\n`);
 }
 
-function processLine(line) {
+function joinConfiguredChannels() {
+  for (const channel of CHANNELS) {
+    if (!joinedChannels.has(channel)) {
+      writeIrc(`JOIN #${channel}`);
+    }
+  }
+}
+
+function processIrcLine(line) {
   if (!line) return;
 
   if (line.startsWith("PING")) {
@@ -374,29 +411,40 @@ function processLine(line) {
   }
 
   if (line.includes(" RECONNECT")) {
-    socket?.destroy();
+    irc?.destroy();
     return;
   }
 
-  const match = line.match(
-    /^@([^ ]+) :([^!]+)![^ ]+ PRIVMSG (#[^ ]+) :(.*)$/
+  if (/\s001\s/.test(line)) {
+    joinConfiguredChannels();
+    return;
+  }
+
+  const joinMatch = line.match(/:([^!]+)![^ ]+\sJOIN\s#([^\s]+)/i);
+
+  if (joinMatch && /^justinfan/i.test(joinMatch[1])) {
+    joinedChannels.add(joinMatch[2].toLowerCase());
+    console.log(`[twitch] Entrou em #${joinMatch[2].toLowerCase()}`);
+    return;
+  }
+
+  const messageMatch = line.match(
+    /^(?:@([^ ]+)\s+)?:([^!]+)![^ ]+\sPRIVMSG\s#([^\s]+)\s:(.*)$/i
   );
 
-  if (!match) return;
+  if (!messageMatch) return;
 
-  const tags = parseTags(match[1]);
-  const username = tags["display-name"] || match[2];
-  const message = match[4];
+  const tags = parseTags(messageMatch[1] || "");
+  const username = tags["display-name"] || messageMatch[2];
+  const channel = messageMatch[3].toLowerCase();
+  const message = messageMatch[4];
 
-  /*
-    Todos podem usar !tf e !ts.
-    A versão anterior ignorava quem não era streamer/moderador.
-  */
-  handleMessage(username, message);
+  console.log(`[chat #${channel}] ${username}: ${message}`);
+  handleChatMessage(username, message);
 }
 
 function scheduleReconnect() {
-  if (!CHANNELS.length || reconnectTimer) return;
+  if (reconnectTimer) return;
 
   const delay = Math.min(
     60000,
@@ -409,20 +457,21 @@ function scheduleReconnect() {
     reconnectTimer = null;
     connectTwitch();
   }, delay);
+
+  console.log(`[twitch] Reconectando em ${Math.ceil(delay / 1000)}s`);
 }
 
 function connectTwitch() {
-  if (!CHANNELS.length) return;
-
   try {
-    socket?.destroy();
+    irc?.destroy();
   } catch {}
 
-  buffer = "";
+  ircBuffer = "";
+  joinedChannels = new Set();
 
   const nickname = `justinfan${Math.floor(10000 + Math.random() * 89999)}`;
 
-  socket = tls.connect(
+  irc = tls.connect(
     {
       host: "irc.chat.twitch.tv",
       port: 6697,
@@ -436,135 +485,205 @@ function connectTwitch() {
       writeIrc("PASS SCHMOOPIIE");
       writeIrc(`NICK ${nickname}`);
 
-      /*
-        Cada canal é conectado separadamente.
-        A versão anterior tentava juntar os canais no mesmo JOIN.
-      */
-      for (const channel of CHANNELS) {
-        writeIrc(`JOIN #${channel}`);
-      }
-
-      console.log(`[twitch] Conectado: ${CHANNELS.join(", ")}`);
+      console.log(`[twitch] Conectando como ${nickname}`);
     }
   );
 
-  socket.setKeepAlive(true, 30000);
-  socket.setTimeout(300000);
+  irc.setKeepAlive(true, 30000);
+  irc.setTimeout(300000);
 
-  socket.on("data", chunk => {
-    buffer += chunk.toString("utf8");
+  irc.on("data", chunk => {
+    ircBuffer += chunk.toString("utf8");
 
-    const lines = buffer.split(/\r?\n/);
-    buffer = lines.pop() || "";
+    const lines = ircBuffer.split(/\r?\n/);
+    ircBuffer = lines.pop() || "";
 
     for (const line of lines) {
-      processLine(line);
+      processIrcLine(line);
     }
   });
 
-  socket.on("timeout", () => {
+  irc.on("timeout", () => {
     writeIrc(`PING :tela2-${Date.now()}`);
   });
 
-  socket.on("error", error => {
+  irc.on("error", error => {
+    lastError = error.message;
     console.error("[twitch]", error.message);
   });
 
-  socket.on("close", () => {
+  irc.on("close", () => {
+    console.error("[twitch] Conexão encerrada");
     scheduleReconnect();
   });
 }
 
-const server = http.createServer((request, response) => {
-  const url = new URL(
-    request.url || "/",
-    `http://${request.headers.host || "localhost"}`
-  );
+function createServer() {
+  return http.createServer((request, response) => {
+    const url = new URL(
+      request.url || "/",
+      `http://${request.headers.host || "localhost"}`
+    );
 
-  if (request.method === "OPTIONS") {
-    response.writeHead(204, commonHeaders());
-    response.end();
-    return;
-  }
+    if (request.method === "OPTIONS") {
+      response.writeHead(204, responseHeaders());
+      response.end();
+      return;
+    }
 
-  if (request.method !== "GET") {
-    sendJson(response, 405, { ok: false });
-    return;
-  }
+    if (request.method !== "GET") {
+      sendJson(response, 405, {
+        ok: false,
+        error: "Método não permitido"
+      });
+      return;
+    }
 
-  if (url.pathname === "/" || url.pathname === "/ping") {
-    sendText(response, 200, "OK");
-    return;
-  }
+    if (url.pathname === "/" || url.pathname === "/ping") {
+      sendText(response, 200, "OK");
+      return;
+    }
 
-  if (url.pathname === "/health") {
-    sendJson(response, 200, {
-      ok: true,
-      channels: CHANNELS,
-      twitchConnected: Boolean(socket && !socket.destroyed),
-      hasContent: Boolean(state),
-      connectedWidgets: streams.size,
-      uptimeSeconds: Math.floor(process.uptime())
-    });
-    return;
-  }
+    if (url.pathname === "/health") {
+      sendJson(response, 200, {
+        ok: true,
+        channels: CHANNELS,
+        twitchConnected: Boolean(irc && !irc.destroyed),
+        joinedChannels: [...joinedChannels],
+        hasContent: Boolean(state),
+        connectedWidgets: eventClients.size,
+        lastChatAt,
+        lastCommand,
+        lastError,
+        uptimeSeconds: Math.floor(process.uptime())
+      });
+      return;
+    }
 
-  if (url.pathname === "/state") {
-    sendJson(response, 200, state);
-    return;
-  }
+    if (url.pathname === "/state") {
+      sendJson(response, 200, state);
+      return;
+    }
 
-  if (url.pathname === "/events") {
-    response.writeHead(200, {
-      ...commonHeaders("text/event-stream; charset=utf-8"),
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no"
-    });
+    if (url.pathname === "/events") {
+      response.writeHead(200, {
+        ...responseHeaders("text/event-stream; charset=utf-8"),
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no"
+      });
 
-    response.write(": conectado\n\n");
-    streams.add(response);
-    sendEvent(response, state);
+      response.write(": conectado\n\n");
+      eventClients.add(response);
+      sendStateEvent(response, state);
 
-    const heartbeat = setInterval(() => {
-      try {
-        response.write(`: ping ${Date.now()}\n\n`);
-      } catch {
+      const heartbeat = setInterval(() => {
+        try {
+          response.write(`: ping ${Date.now()}\n\n`);
+        } catch {
+          clearInterval(heartbeat);
+          eventClients.delete(response);
+        }
+      }, 15000);
+
+      request.on("close", () => {
         clearInterval(heartbeat);
-        streams.delete(response);
-      }
-    }, 15000);
+        eventClients.delete(response);
+      });
 
-    request.on("close", () => {
-      clearInterval(heartbeat);
-      streams.delete(response);
+      return;
+    }
+
+    sendJson(response, 404, {
+      ok: false,
+      error: "Rota não encontrada"
     });
+  });
+}
 
-    return;
+function runSelfTest() {
+  const tests = [
+    {
+      input: "Elite EP1 - T2",
+      expected: {
+        title: "Elite",
+        episode: 1,
+        season: 2,
+        episodeText: "EP1 - T2"
+      }
+    },
+    {
+      input: "Elite T2 - EP1",
+      expected: {
+        title: "Elite",
+        episode: 1,
+        season: 2,
+        episodeText: "EP1 - T2"
+      }
+    },
+    {
+      input: "Dark 2017",
+      expected: {
+        title: "Dark",
+        year: "2017"
+      }
+    }
+  ];
+
+  for (const test of tests) {
+    const actual = parseSeries(test.input);
+
+    for (const [key, value] of Object.entries(test.expected)) {
+      if (!actual || actual[key] !== value) {
+        throw new Error(
+          `Falha no teste "${test.input}": ${key} deveria ser ${value}`
+        );
+      }
+    }
   }
 
-  sendJson(response, 404, { ok: false });
-});
+  console.log("[teste] Comandos !tf e !ts validados");
+}
+
+if (process.argv.includes("--self-test")) {
+  runSelfTest();
+  process.exit(0);
+}
+
+const server = createServer();
 
 server.keepAliveTimeout = 65000;
 server.headersTimeout = 66000;
+server.requestTimeout = 30000;
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`[http] Porta ${PORT}`);
+  console.log(`[http] Serviço iniciado na porta ${PORT}`);
+  console.log(`[twitch] Canais: ${CHANNELS.join(", ")}`);
   connectTwitch();
 });
 
-function shutdown() {
-  if (reconnectTimer) clearTimeout(reconnectTimer);
+function shutdown(signal) {
+  console.log(`[sistema] Encerrando por ${signal}`);
+
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+  }
 
   try {
-    socket?.destroy();
+    irc?.destroy();
   } catch {}
 
   server.close(() => process.exit(0));
+
   setTimeout(() => process.exit(0), 5000).unref();
 }
 
-process.on("SIGTERM", shutdown);
-process.on("SIGINT", shutdown);
-process.on("unhandledRejection", error => console.error("[erro]", error));
-process.on("uncaughtException", error => console.error("[erro]", error));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("unhandledRejection", error => {
+  lastError = error.message;
+  console.error("[erro]", error);
+});
+process.on("uncaughtException", error => {
+  lastError = error.message;
+  console.error("[erro fatal]", error);
+});
