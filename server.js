@@ -1,27 +1,42 @@
 "use strict";
 
 const http = require("http");
+const tls = require("tls");
 const fs = require("fs");
 const path = require("path");
 
+const IS_BUILD = process.argv.includes("--build");
+const IS_POSTINSTALL = process.argv.includes("--postinstall");
+
+/*
+  Configuração atual do Render:
+  Build Command: npm start
+  Start Command: npm install
+*/
+if (IS_BUILD) {
+  console.log("[build] OK");
+  process.exit(0);
+}
+
+if (IS_POSTINSTALL && !process.env.PORT) {
+  console.log("[install] OK");
+  process.exit(0);
+}
+
 const PORT = Number(process.env.PORT || 10000);
+const CHANNELS = ["icarolinaporto"];
 
-const TMDB_BEARER = String(
-  process.env.TMDB_BEARER ||
-  "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJiMDk1Y2NiYmIxODVkMjc3MDNkMDA3YWUwZGVkNWY3ZCIsIm5iZiI6MTc3NjYxMTUzMS4yNTQwMDAyLCJzdWIiOiI2OWU0ZjBjYmE2ZjVkMTQyYzc0YjMyYzkiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.F0r1SSOo4SeBFIWtOzE6mkYNjXTZgVRdrVCT0qDPVYA"
-).trim();
-
-const TMDB_API_KEY = String(
-  process.env.TMDB_API_KEY ||
-  "b095ccbbb185d27703d007ae0ded5f7d"
-).trim();
+const TMDB_BEARER = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJiMDk1Y2NiYmIxODVkMjc3MDNkMDA3YWUwZGVkNWY3ZCIsIm5iZiI6MTc3NjYxMTUzMS4yNTQwMDAyLCJzdWIiOiI2OWU0ZjBjYmE2ZjVkMTQyYzc0YjMyYzkiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.F0r1SSOo4SeBFIWtOzE6mkYNjXTZgVRdrVCT0qDPVYA";
+const TMDB_API_KEY = "b095ccbbb185d27703d007ae0ded5f7d";
 
 const STATE_FILE = path.join(__dirname, "state.json");
-const clients = new Set();
+let state = loadState();
 
-let currentState = loadState();
-let lastCommand = null;
-let lastError = null;
+let socket = null;
+let buffer = "";
+let reconnectTimer = null;
+let reconnectAttempt = 0;
+const streams = new Set();
 
 function validState(value) {
   return Boolean(
@@ -44,73 +59,38 @@ function loadState() {
 
 function saveState() {
   try {
-    fs.writeFileSync(
-      STATE_FILE,
-      JSON.stringify(currentState, null, 2),
-      "utf8"
-    );
+    fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), "utf8");
   } catch (error) {
     console.error("[estado]", error.message);
   }
 }
 
-function headers(contentType = "application/json; charset=utf-8") {
+function commonHeaders(contentType = "application/json; charset=utf-8") {
   return {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Cache-Control": "no-store, no-cache, must-revalidate",
     "Content-Type": contentType
   };
 }
 
-function sendText(response, status, text) {
-  const body = String(text);
-
+function sendText(response, status, value) {
+  const body = String(value);
   response.writeHead(status, {
-    ...headers("text/plain; charset=utf-8"),
+    ...commonHeaders("text/plain; charset=utf-8"),
     "Content-Length": Buffer.byteLength(body)
   });
-
   response.end(body);
 }
 
 function sendJson(response, status, value) {
   const body = JSON.stringify(value);
-
   response.writeHead(status, {
-    ...headers(),
+    ...commonHeaders(),
     "Content-Length": Buffer.byteLength(body)
   });
-
   response.end(body);
-}
-
-function readJson(request) {
-  return new Promise((resolve, reject) => {
-    let body = "";
-
-    request.setEncoding("utf8");
-
-    request.on("data", chunk => {
-      body += chunk;
-
-      if (body.length > 100_000) {
-        reject(new Error("Corpo muito grande"));
-        request.destroy();
-      }
-    });
-
-    request.on("end", () => {
-      try {
-        resolve(body ? JSON.parse(body) : {});
-      } catch {
-        reject(new Error("JSON inválido"));
-      }
-    });
-
-    request.on("error", reject);
-  });
 }
 
 function sendEvent(response, value) {
@@ -119,11 +99,11 @@ function sendEvent(response, value) {
 }
 
 function broadcast() {
-  for (const response of [...clients]) {
+  for (const response of [...streams]) {
     try {
-      sendEvent(response, currentState);
+      sendEvent(response, state);
     } catch {
-      clients.delete(response);
+      streams.delete(response);
     }
   }
 }
@@ -153,54 +133,36 @@ function originalTitleOf(item, type) {
 }
 
 function yearOf(item, type) {
-  return firstYear(
-    type === "tv" ? item.first_air_date : item.release_date
-  );
+  return firstYear(type === "tv" ? item.first_air_date : item.release_date);
 }
 
-function scoreResult(item, type, wantedTitle, wantedYear) {
-  const wanted = normalize(wantedTitle);
+function score(item, type, requestedTitle, requestedYear) {
+  const wanted = normalize(requestedTitle);
   const title = normalize(titleOf(item, type));
   const original = normalize(originalTitleOf(item, type));
   const year = yearOf(item, type);
 
-  let score = 0;
+  let points = 0;
 
-  if (title === wanted) score += 1000;
-  if (original === wanted) score += 950;
-  if (title.startsWith(wanted) || wanted.startsWith(title)) score += 300;
-  if (original.startsWith(wanted) || wanted.startsWith(original)) score += 260;
-  if (title.includes(wanted) || original.includes(wanted)) score += 120;
-  if (wantedYear) score += year === wantedYear ? 700 : -350;
-  if (item.poster_path) score += 25;
+  if (title === wanted) points += 1000;
+  if (original === wanted) points += 950;
+  if (title.startsWith(wanted) || wanted.startsWith(title)) points += 300;
+  if (original.startsWith(wanted) || wanted.startsWith(original)) points += 260;
+  if (title.includes(wanted) || original.includes(wanted)) points += 120;
+  if (requestedYear) points += year === requestedYear ? 700 : -350;
+  if (item.poster_path) points += 25;
 
-  return score + Math.min(Number(item.popularity || 0), 100) / 10;
+  return points + Math.min(Number(item.popularity || 0), 100) / 10;
 }
 
 async function searchTmdb(type, query, year) {
-  if (process.env.TMDB_MOCK === "1") {
-    return {
-      revision: Date.now(),
-      type,
-      tmdbId: 1,
-      title: query,
-      year: year || (type === "tv" ? "2018" : "1979"),
-      typeLabel: type === "tv" ? "Série" : "Filme",
-      poster: "",
-      updatedAt: new Date().toISOString()
-    };
-  }
-
   const url = new URL(`https://api.themoviedb.org/3/search/${type}`);
 
+  url.searchParams.set("api_key", TMDB_API_KEY);
   url.searchParams.set("language", "pt-BR");
   url.searchParams.set("include_adult", "false");
   url.searchParams.set("query", query);
   url.searchParams.set("page", "1");
-
-  if (TMDB_API_KEY) {
-    url.searchParams.set("api_key", TMDB_API_KEY);
-  }
 
   if (year) {
     url.searchParams.set(
@@ -209,46 +171,41 @@ async function searchTmdb(type, query, year) {
     );
   }
 
-  const requestHeaders = {
-    accept: "application/json"
-  };
-
-  if (TMDB_BEARER) {
-    requestHeaders.Authorization = `Bearer ${TMDB_BEARER}`;
-  }
-
   const response = await fetch(url, {
-    headers: requestHeaders,
+    headers: {
+      accept: "application/json",
+      Authorization: `Bearer ${TMDB_BEARER}`
+    },
     signal: AbortSignal.timeout(15000)
   });
 
   if (!response.ok) {
-    throw new Error(`TMDB respondeu ${response.status}`);
+    throw new Error(`TMDB ${response.status}`);
   }
 
   const payload = await response.json();
   const results = Array.isArray(payload.results) ? payload.results : [];
 
   if (!results.length) {
-    throw new Error("Título não encontrado na TMDB");
+    throw new Error("Título não encontrado");
   }
 
-  const selected = results
+  const item = results
     .map(item => ({
       item,
-      score: scoreResult(item, type, query, year)
+      points: score(item, type, query, year)
     }))
-    .sort((left, right) => right.score - left.score)[0].item;
+    .sort((left, right) => right.points - left.points)[0].item;
 
   return {
     revision: Date.now(),
     type,
-    tmdbId: selected.id,
-    title: titleOf(selected, type) || query,
-    year: yearOf(selected, type) || year || "",
+    tmdbId: item.id,
+    title: titleOf(item, type) || query,
+    year: yearOf(item, type) || year || "",
     typeLabel: type === "tv" ? "Série" : "Filme",
-    poster: selected.poster_path
-      ? `https://image.tmdb.org/t/p/w342${selected.poster_path}`
+    poster: item.poster_path
+      ? `https://image.tmdb.org/t/p/w342${item.poster_path}`
       : "",
     updatedAt: new Date().toISOString()
   };
@@ -256,7 +213,6 @@ async function searchTmdb(type, query, year) {
 
 function parseTitleAndYear(raw) {
   const value = String(raw || "").trim();
-
   if (!value) return null;
 
   const match = value.match(
@@ -264,25 +220,15 @@ function parseTitleAndYear(raw) {
   );
 
   if (!match) {
-    return {
-      title: value,
-      year: ""
-    };
+    return { title: value, year: "" };
   }
 
   const title = match[1].trim();
-
-  return title
-    ? {
-        title,
-        year: match[2]
-      }
-    : null;
+  return title ? { title, year: match[2] } : null;
 }
 
 function parseSeries(raw) {
   const value = String(raw || "").trim();
-
   if (!value) return null;
 
   const episodeFirst = value.match(
@@ -291,7 +237,6 @@ function parseSeries(raw) {
 
   if (episodeFirst) {
     const base = parseTitleAndYear(episodeFirst[1].trim());
-
     if (!base) return null;
 
     return {
@@ -307,7 +252,6 @@ function parseSeries(raw) {
 
   if (seasonFirst) {
     const base = parseTitleAndYear(seasonFirst[1].trim());
-
     if (!base) return null;
 
     return {
@@ -320,269 +264,322 @@ function parseSeries(raw) {
   return parseTitleAndYear(value);
 }
 
-function parseCommand(rawCommand) {
-  const command = String(rawCommand || "").trim();
-  const lower = command.toLocaleLowerCase("pt-BR");
+function commandArgument(message, command) {
+  const text = String(message || "").trim();
+  const lower = text.toLocaleLowerCase("pt-BR");
 
-  if (lower.startsWith("!tf ")) {
-    const parsed = parseTitleAndYear(command.slice(4));
+  if (lower === command) return "";
+  if (!lower.startsWith(`${command} `)) return null;
 
-    return parsed
-      ? {
-          type: "movie",
-          parsed
-        }
-      : null;
-  }
-
-  if (lower.startsWith("!ts ")) {
-    const parsed = parseSeries(command.slice(4));
-
-    return parsed
-      ? {
-          type: "tv",
-          parsed
-        }
-      : null;
-  }
-
-  return null;
+  return text.slice(command.length).trim();
 }
 
-async function executeCommand(rawCommand, username) {
-  const command = parseCommand(rawCommand);
+function decodeTag(value) {
+  return String(value || "")
+    .replace(/\\s/g, " ")
+    .replace(/\\:/g, ";")
+    .replace(/\\\\/g, "\\")
+    .replace(/\\r/g, "\r")
+    .replace(/\\n/g, "\n");
+}
 
-  if (!command) {
-    throw new Error("Use !tf ou !ts seguido do título");
+function parseTags(raw) {
+  const tags = {};
+
+  for (const pair of String(raw || "").split(";")) {
+    const separator = pair.indexOf("=");
+    const key = separator >= 0 ? pair.slice(0, separator) : pair;
+    const value = separator >= 0 ? pair.slice(separator + 1) : "";
+    tags[key] = decodeTag(value);
   }
 
-  const found = await searchTmdb(
-    command.type,
-    command.parsed.title,
-    command.parsed.year
+  return tags;
+}
+
+async function applyCommand(type, parsed, username) {
+  try {
+    const next = await searchTmdb(type, parsed.title, parsed.year);
+
+    const episodeText =
+      type === "tv" && parsed.episode && parsed.season
+        ? `EP${parsed.episode} - T${parsed.season}`
+        : "";
+
+    const displayTitle = episodeText
+      ? `${next.title} ${episodeText}`
+      : next.title;
+
+    state = {
+      ...next,
+      baseTitle: next.title,
+      title: displayTitle,
+      displayTitle,
+      episode: parsed.episode || null,
+      season: parsed.season || null,
+      updatedBy: username || "chat"
+    };
+
+    saveState();
+    broadcast();
+
+    console.log(
+      `[comando] ${state.typeLabel}: ${state.title}` +
+      `${state.year ? ` (${state.year})` : ""}`
+    );
+  } catch (error) {
+    console.error("[tmdb]", error.message);
+  }
+}
+
+function handleMessage(username, message) {
+  let argument = commandArgument(message, "!tf");
+
+  if (argument !== null) {
+    const parsed = parseTitleAndYear(argument);
+    if (parsed) applyCommand("movie", parsed, username);
+    return;
+  }
+
+  argument = commandArgument(message, "!ts");
+
+  if (argument !== null) {
+    const parsed = parseSeries(argument);
+    if (parsed) applyCommand("tv", parsed, username);
+  }
+}
+
+function writeIrc(line) {
+  if (!socket || socket.destroyed) return;
+  socket.write(`${line}\r\n`);
+}
+
+function processLine(line) {
+  if (!line) return;
+
+  if (line.startsWith("PING")) {
+    writeIrc(line.replace(/^PING/, "PONG"));
+    return;
+  }
+
+  if (line.includes(" RECONNECT")) {
+    socket?.destroy();
+    return;
+  }
+
+  const match = line.match(
+    /^@([^ ]+) :([^!]+)![^ ]+ PRIVMSG (#[^ ]+) :(.*)$/
   );
 
-  const episodeText =
-    command.type === "tv" &&
-    command.parsed.episode &&
-    command.parsed.season
-      ? `EP${command.parsed.episode} - T${command.parsed.season}`
-      : "";
+  if (!match) return;
 
-  const displayTitle = episodeText
-    ? `${found.title} ${episodeText}`
-    : found.title;
+  const tags = parseTags(match[1]);
+  const username = tags["display-name"] || match[2];
+  const message = match[4];
 
-  currentState = {
-    ...found,
-    baseTitle: found.title,
-    title: displayTitle,
-    displayTitle,
-    episode: command.parsed.episode || null,
-    season: command.parsed.season || null,
-    updatedBy: String(username || "chat")
-  };
-
-  lastCommand = {
-    command: rawCommand,
-    result: displayTitle,
-    user: String(username || "chat"),
-    at: new Date().toISOString()
-  };
-
-  lastError = null;
-
-  saveState();
-  broadcast();
-
-  console.log(`[comando] ${rawCommand} -> ${displayTitle}`);
-
-  return currentState;
+  /*
+    Todos podem usar !tf e !ts.
+    A versão anterior ignorava quem não era streamer/moderador.
+  */
+  handleMessage(username, message);
 }
 
-function runSelfTest() {
-  const tests = [
+function scheduleReconnect() {
+  if (!CHANNELS.length || reconnectTimer) return;
+
+  const delay = Math.min(
+    60000,
+    2000 * Math.pow(2, Math.min(reconnectAttempt, 5))
+  );
+
+  reconnectAttempt += 1;
+
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    connectTwitch();
+  }, delay);
+}
+
+function connectTwitch() {
+  if (!CHANNELS.length) return;
+
+  try {
+    socket?.destroy();
+  } catch {}
+
+  buffer = "";
+
+  const nickname = `justinfan${Math.floor(10000 + Math.random() * 89999)}`;
+
+  socket = tls.connect(
     {
-      command: "!ts Elite EP1 - T2",
-      expectedTitle: "Elite",
-      expectedEpisode: 1,
-      expectedSeason: 2
+      host: "irc.chat.twitch.tv",
+      port: 6697,
+      servername: "irc.chat.twitch.tv",
+      rejectUnauthorized: true
     },
-    {
-      command: "!ts Elite T2 - EP1",
-      expectedTitle: "Elite",
-      expectedEpisode: 1,
-      expectedSeason: 2
-    },
-    {
-      command: "!tf Alien 1979",
-      expectedTitle: "Alien",
-      expectedYear: "1979"
+    () => {
+      reconnectAttempt = 0;
+
+      writeIrc("CAP REQ :twitch.tv/tags twitch.tv/commands");
+      writeIrc("PASS SCHMOOPIIE");
+      writeIrc(`NICK ${nickname}`);
+
+      /*
+        Cada canal é conectado separadamente.
+        A versão anterior tentava juntar os canais no mesmo JOIN.
+      */
+      for (const channel of CHANNELS) {
+        writeIrc(`JOIN #${channel}`);
+      }
+
+      console.log(`[twitch] Conectado: ${CHANNELS.join(", ")}`);
     }
-  ];
+  );
 
-  for (const test of tests) {
-    const result = parseCommand(test.command);
+  socket.setKeepAlive(true, 30000);
+  socket.setTimeout(300000);
 
-    if (!result) {
-      throw new Error(`Não reconheceu: ${test.command}`);
+  socket.on("data", chunk => {
+    buffer += chunk.toString("utf8");
+
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      processLine(line);
     }
+  });
 
-    if (result.parsed.title !== test.expectedTitle) {
-      throw new Error(`Título incorreto em: ${test.command}`);
-    }
+  socket.on("timeout", () => {
+    writeIrc(`PING :tela2-${Date.now()}`);
+  });
 
-    if (
-      test.expectedEpisode &&
-      result.parsed.episode !== test.expectedEpisode
-    ) {
-      throw new Error(`Episódio incorreto em: ${test.command}`);
-    }
+  socket.on("error", error => {
+    console.error("[twitch]", error.message);
+  });
 
-    if (
-      test.expectedSeason &&
-      result.parsed.season !== test.expectedSeason
-    ) {
-      throw new Error(`Temporada incorreta em: ${test.command}`);
-    }
-
-    if (
-      test.expectedYear &&
-      result.parsed.year !== test.expectedYear
-    ) {
-      throw new Error(`Ano incorreto em: ${test.command}`);
-    }
-  }
-
-  console.log("[teste] !tf, !ts e episódio validados");
+  socket.on("close", () => {
+    scheduleReconnect();
+  });
 }
 
 if (process.argv.includes("--self-test")) {
-  runSelfTest();
+  const tests = [
+    ["Elite EP1 - T2", "Elite", 1, 2],
+    ["The Office T2 - EP3", "The Office", 3, 2],
+    ["Elite 2018", "Elite", null, null]
+  ];
+
+  for (const [input, expectedTitle, expectedEpisode, expectedSeason] of tests) {
+    const parsed = parseSeries(input);
+
+    if (!parsed || parsed.title !== expectedTitle) {
+      throw new Error(`Falha no título: ${input}`);
+    }
+
+    if ((parsed.episode || null) !== expectedEpisode) {
+      throw new Error(`Falha no episódio: ${input}`);
+    }
+
+    if ((parsed.season || null) !== expectedSeason) {
+      throw new Error(`Falha na temporada: ${input}`);
+    }
+  }
+
+  console.log("[teste] Episódio e temporada reconhecidos corretamente");
   process.exit(0);
 }
 
-const server = http.createServer(async (request, response) => {
+const server = http.createServer((request, response) => {
   const url = new URL(
     request.url || "/",
     `http://${request.headers.host || "localhost"}`
   );
 
   if (request.method === "OPTIONS") {
-    response.writeHead(204, headers());
+    response.writeHead(204, commonHeaders());
     response.end();
     return;
   }
 
-  if (request.method === "GET" && (
-    url.pathname === "/" ||
-    url.pathname === "/ping"
-  )) {
+  if (request.method !== "GET") {
+    sendJson(response, 405, { ok: false });
+    return;
+  }
+
+  if (url.pathname === "/" || url.pathname === "/ping") {
     sendText(response, 200, "OK");
     return;
   }
 
-  if (request.method === "GET" && url.pathname === "/health") {
+  if (url.pathname === "/health") {
     sendJson(response, 200, {
       ok: true,
-      hasContent: Boolean(currentState),
-      connectedWidgets: clients.size,
-      lastCommand,
-      lastError,
+      channels: CHANNELS,
+      twitchConnected: Boolean(socket && !socket.destroyed),
+      hasContent: Boolean(state),
+      connectedWidgets: streams.size,
       uptimeSeconds: Math.floor(process.uptime())
     });
     return;
   }
 
-  if (request.method === "GET" && url.pathname === "/state") {
-    sendJson(response, 200, currentState);
+  if (url.pathname === "/state") {
+    sendJson(response, 200, state);
     return;
   }
 
-  if (request.method === "GET" && url.pathname === "/events") {
+  if (url.pathname === "/events") {
     response.writeHead(200, {
-      ...headers("text/event-stream; charset=utf-8"),
+      ...commonHeaders("text/event-stream; charset=utf-8"),
       Connection: "keep-alive",
       "X-Accel-Buffering": "no"
     });
 
     response.write(": conectado\n\n");
-    clients.add(response);
-    sendEvent(response, currentState);
+    streams.add(response);
+    sendEvent(response, state);
 
     const heartbeat = setInterval(() => {
       try {
         response.write(`: ping ${Date.now()}\n\n`);
       } catch {
         clearInterval(heartbeat);
-        clients.delete(response);
+        streams.delete(response);
       }
     }, 15000);
 
     request.on("close", () => {
       clearInterval(heartbeat);
-      clients.delete(response);
+      streams.delete(response);
     });
 
     return;
   }
 
-  if (request.method === "POST" && url.pathname === "/command") {
-    try {
-      const body = await readJson(request);
-      const result = await executeCommand(
-        body.command,
-        body.user
-      );
-
-      sendJson(response, 200, {
-        ok: true,
-        state: result
-      });
-    } catch (error) {
-      lastError = error.message;
-      console.error("[command]", error.message);
-
-      sendJson(response, 400, {
-        ok: false,
-        error: error.message
-      });
-    }
-
-    return;
-  }
-
-  sendJson(response, 404, {
-    ok: false,
-    error: "Rota não encontrada"
-  });
+  sendJson(response, 404, { ok: false });
 });
 
 server.keepAliveTimeout = 65000;
 server.headersTimeout = 66000;
-server.requestTimeout = 30000;
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`[http] Serviço iniciado na porta ${PORT}`);
+  console.log(`[http] Porta ${PORT}`);
+  connectTwitch();
 });
 
-function shutdown(signal) {
-  console.log(`[sistema] Encerrando por ${signal}`);
+function shutdown() {
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+
+  try {
+    socket?.destroy();
+  } catch {}
 
   server.close(() => process.exit(0));
-
-  setTimeout(() => {
-    process.exit(0);
-  }, 5000).unref();
+  setTimeout(() => process.exit(0), 5000).unref();
 }
 
-process.on("SIGTERM", () => shutdown("SIGTERM"));
-process.on("SIGINT", () => shutdown("SIGINT"));
-process.on("unhandledRejection", error => {
-  lastError = error.message;
-  console.error("[erro]", error);
-});
-process.on("uncaughtException", error => {
-  lastError = error.message;
-  console.error("[erro fatal]", error);
-});
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
+process.on("unhandledRejection", error => console.error("[erro]", error));
+process.on("uncaughtException", error => console.error("[erro]", error));

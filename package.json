@@ -1,16 +1,16 @@
 {
   "name": "tela2",
-  "version": "3.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "API do overlay Assistindo Agora.",
+  "description": "Servidor simples do overlay Assistindo Agora.",
   "main": "server.js",
   "type": "commonjs",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "start": "node server.js",
-    "test": "node server.js --self-test"
+    "start": "node server.js --build",
+    "postinstall": "node server.js --postinstall"
   },
   "dependencies": {}
 }
