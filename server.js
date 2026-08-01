@@ -232,6 +232,30 @@ function parseTitleAndYear(raw) {
   return title ? { title, year: match[2] } : null;
 }
 
+function parseSeriesTitleEpisodeAndSeason(raw) {
+  const value = String(raw || "").trim();
+  if (!value) return null;
+
+  // Exemplo aceito: !ts elite EP1 - T2
+  // A busca na TMDB usa somente "elite" e o overlay exibe o episódio/temporada.
+  const episodeMatch = value.match(
+    /^(.*?)\s+EP\s*(\d+)\s*-\s*T\s*(\d+)$/i
+  );
+
+  if (episodeMatch) {
+    const title = episodeMatch[1].trim();
+    if (!title) return null;
+
+    return {
+      title,
+      year: "",
+      episodeInfo: `EP${episodeMatch[2]} - T${episodeMatch[3]}`
+    };
+  }
+
+  return parseTitleAndYear(value);
+}
+
 function commandArgument(message, command) {
   const text = String(message || "").trim();
   const lower = text.toLocaleLowerCase("pt-BR");
@@ -267,9 +291,15 @@ function parseTags(raw) {
 async function applyCommand(type, parsed, username) {
   try {
     const next = await searchTmdb(type, parsed.title, parsed.year);
+    const episodeInfo = type === "tv" ? parsed.episodeInfo || "" : "";
 
     state = {
       ...next,
+      baseTitle: next.title,
+      episodeInfo,
+      title: episodeInfo
+        ? `Estamos assistindo ${next.title} ${episodeInfo}`
+        : next.title,
       updatedBy: username || "chat"
     };
 
@@ -297,7 +327,7 @@ function handleMessage(username, message) {
   argument = commandArgument(message, "!ts");
 
   if (argument !== null) {
-    const parsed = parseTitleAndYear(argument);
+    const parsed = parseSeriesTitleEpisodeAndSeason(argument);
     if (parsed) applyCommand("tv", parsed, username);
   }
 }
