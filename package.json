@@ -1,8 +1,8 @@
 {
   "name": "tela2",
-  "version": "1.2.0",
+  "version": "3.0.0",
   "private": true,
-  "description": "Servidor do overlay Assistindo Agora.",
+  "description": "API do overlay Assistindo Agora.",
   "main": "server.js",
   "type": "commonjs",
   "engines": {

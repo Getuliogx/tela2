@@ -1,14 +1,8 @@
 # tela2
 
-Projeto corrigido usando o arquivo original enviado.
+Esta versão não tenta ler o chat da Twitch pelo Render.
 
-## Canal
-
-```text
-icarolinaporto
-```
-
-O canal está fixo no `server.js` e não depende de variável antiga do Render.
+O próprio widget do StreamElements recebe `!tf` e `!ts` e envia o comando para o Render.
 
 ## Render
 
@@ -27,12 +21,12 @@ Health Check Path: /ping
 !ts Elite T2 - EP1
 ```
 
-O comando `!ts Elite EP1 - T2` pesquisa apenas `Elite` na TMDB e envia ao StreamElements o título `Elite EP1 - T2`.
-
-## Diagnóstico
+## Rotas
 
 ```text
-https://tela2.onrender.com/health
+GET  /ping
+GET  /health
+GET  /state
+GET  /events
+POST /command
 ```
-
-Depois de enviar um comando, `lastChatMessage` e `lastCommand` mostram o que o servidor recebeu.

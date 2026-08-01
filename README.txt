@@ -1,7 +1,6 @@
-TELA2 CORRIGIDO
+TELA2 - COMANDOS VIA STREAMELEMENTS
 
-CANAL FIXO:
-icarolinaporto
+O widget recebe a mensagem do chat e envia ao Render.
 
 RENDER:
 Build Command: npm install
@@ -13,6 +12,3 @@ COMANDOS:
 !ts Elite 2018
 !ts Elite EP1 - T2
 !ts Elite T2 - EP1
-
-DIAGNOSTICO:
-https://tela2.onrender.com/health
