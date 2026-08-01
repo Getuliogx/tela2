@@ -8,15 +8,11 @@ const path = require("path");
 const PORT = Number(process.env.PORT || 10000);
 
 /*
-  O canal correto aparece no projeto como icarolinaporto.
-  Ele é sempre incluído, mesmo que exista uma variável antiga e errada no Render.
+  Canal fixo correto.
+  Não depende de variável antiga do Render.
 */
-const configuredChannels = String(process.env.TWITCH_CHANNEL || "")
-  .split(",")
-  .map(value => value.trim().replace(/^#/, "").toLowerCase())
-  .filter(Boolean);
-
-const CHANNELS = [...new Set(["icarolinaporto", ...configuredChannels])];
+const CHANNEL = "icarolinaporto";
+const CHANNELS = [CHANNEL];
 
 const TMDB_BEARER = String(
   process.env.TMDB_BEARER ||
@@ -31,16 +27,16 @@ const TMDB_API_KEY = String(
 const STATE_FILE = path.join(__dirname, "state.json");
 
 let state = loadState();
-let irc = null;
+let socket = null;
 let ircBuffer = "";
 let reconnectTimer = null;
 let reconnectAttempt = 0;
-let joinedChannels = new Set();
-let lastChatAt = null;
+let joined = false;
+let lastChatMessage = null;
 let lastCommand = null;
 let lastError = null;
 
-const eventClients = new Set();
+const streams = new Set();
 
 function validState(value) {
   return Boolean(
@@ -69,7 +65,7 @@ function saveState() {
   }
 }
 
-function responseHeaders(contentType = "application/json; charset=utf-8") {
+function commonHeaders(contentType = "application/json; charset=utf-8") {
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
@@ -79,35 +75,39 @@ function responseHeaders(contentType = "application/json; charset=utf-8") {
   };
 }
 
-function sendText(response, status, text) {
-  const body = String(text);
+function sendText(response, status, value) {
+  const body = String(value);
+
   response.writeHead(status, {
-    ...responseHeaders("text/plain; charset=utf-8"),
+    ...commonHeaders("text/plain; charset=utf-8"),
     "Content-Length": Buffer.byteLength(body)
   });
+
   response.end(body);
 }
 
 function sendJson(response, status, value) {
   const body = JSON.stringify(value);
+
   response.writeHead(status, {
-    ...responseHeaders(),
+    ...commonHeaders(),
     "Content-Length": Buffer.byteLength(body)
   });
+
   response.end(body);
 }
 
-function sendStateEvent(response, value) {
+function sendEvent(response, value) {
   response.write("event: state\n");
   response.write(`data: ${JSON.stringify(value)}\n\n`);
 }
 
-function broadcastState() {
-  for (const response of [...eventClients]) {
+function broadcast() {
+  for (const response of [...streams]) {
     try {
-      sendStateEvent(response, state);
+      sendEvent(response, state);
     } catch {
-      eventClients.delete(response);
+      streams.delete(response);
     }
   }
 }
@@ -118,7 +118,7 @@ function firstYear(value) {
     : "";
 }
 
-function normalizeText(value) {
+function normalize(value) {
   return String(value || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -140,36 +140,33 @@ function yearOf(item, type) {
   return firstYear(type === "tv" ? item.first_air_date : item.release_date);
 }
 
-function scoreResult(item, type, requestedTitle, requestedYear) {
-  const wanted = normalizeText(requestedTitle);
-  const localized = normalizeText(titleOf(item, type));
-  const original = normalizeText(originalTitleOf(item, type));
+function score(item, type, requestedTitle, requestedYear) {
+  const wanted = normalize(requestedTitle);
+  const title = normalize(titleOf(item, type));
+  const original = normalize(originalTitleOf(item, type));
   const year = yearOf(item, type);
 
-  let score = 0;
+  let points = 0;
 
-  if (localized === wanted) score += 1000;
-  if (original === wanted) score += 950;
-  if (localized.startsWith(wanted) || wanted.startsWith(localized)) score += 300;
-  if (original.startsWith(wanted) || wanted.startsWith(original)) score += 260;
-  if (localized.includes(wanted) || original.includes(wanted)) score += 120;
-  if (requestedYear) score += year === requestedYear ? 700 : -350;
-  if (item.poster_path) score += 25;
+  if (title === wanted) points += 1000;
+  if (original === wanted) points += 950;
+  if (title.startsWith(wanted) || wanted.startsWith(title)) points += 300;
+  if (original.startsWith(wanted) || wanted.startsWith(original)) points += 260;
+  if (title.includes(wanted) || original.includes(wanted)) points += 120;
+  if (requestedYear) points += year === requestedYear ? 700 : -350;
+  if (item.poster_path) points += 25;
 
-  return score + Math.min(Number(item.popularity || 0), 100) / 10;
+  return points + Math.min(Number(item.popularity || 0), 100) / 10;
 }
 
 async function searchTmdb(type, query, year) {
   const url = new URL(`https://api.themoviedb.org/3/search/${type}`);
 
+  url.searchParams.set("api_key", TMDB_API_KEY);
   url.searchParams.set("language", "pt-BR");
   url.searchParams.set("include_adult", "false");
   url.searchParams.set("query", query);
   url.searchParams.set("page", "1");
-
-  if (TMDB_API_KEY) {
-    url.searchParams.set("api_key", TMDB_API_KEY);
-  }
 
   if (year) {
     url.searchParams.set(
@@ -178,14 +175,11 @@ async function searchTmdb(type, query, year) {
     );
   }
 
-  const headers = { accept: "application/json" };
-
-  if (TMDB_BEARER) {
-    headers.Authorization = `Bearer ${TMDB_BEARER}`;
-  }
-
   const response = await fetch(url, {
-    headers,
+    headers: {
+      accept: "application/json",
+      Authorization: `Bearer ${TMDB_BEARER}`
+    },
     signal: AbortSignal.timeout(15000)
   });
 
@@ -200,22 +194,22 @@ async function searchTmdb(type, query, year) {
     throw new Error("Título não encontrado na TMDB");
   }
 
-  const selected = results
-    .map(item => ({
-      item,
-      score: scoreResult(item, type, query, year)
+  const item = results
+    .map(result => ({
+      item: result,
+      points: score(result, type, query, year)
     }))
-    .sort((left, right) => right.score - left.score)[0].item;
+    .sort((left, right) => right.points - left.points)[0].item;
 
   return {
     revision: Date.now(),
     type,
-    tmdbId: selected.id,
-    title: titleOf(selected, type) || query,
-    year: yearOf(selected, type) || year || "",
+    tmdbId: item.id,
+    title: titleOf(item, type) || query,
+    year: yearOf(item, type) || year || "",
     typeLabel: type === "tv" ? "Série" : "Filme",
-    poster: selected.poster_path
-      ? `https://image.tmdb.org/t/p/w342${selected.poster_path}`
+    poster: item.poster_path
+      ? `https://image.tmdb.org/t/p/w342${item.poster_path}`
       : "",
     updatedAt: new Date().toISOString()
   };
@@ -223,6 +217,7 @@ async function searchTmdb(type, query, year) {
 
 function parseTitleAndYear(raw) {
   const value = String(raw || "").trim();
+
   if (!value) return null;
 
   const match = value.match(
@@ -230,58 +225,56 @@ function parseTitleAndYear(raw) {
   );
 
   if (!match) {
-    return { title: value, year: "" };
+    return {
+      title: value,
+      year: ""
+    };
   }
 
   const title = match[1].trim();
 
   return title
-    ? { title, year: match[2] }
+    ? {
+        title,
+        year: match[2]
+      }
     : null;
 }
 
 function parseSeries(raw) {
   const value = String(raw || "").trim();
+
   if (!value) return null;
 
-  const patterns = [
-    /^(.*?)\s+(?:EP|E)\s*0*(\d+)\s*(?:[-–—]\s*)?(?:T|TEMP|TEMPORADA)\s*0*(\d+)\s*$/i,
-    /^(.*?)\s+(?:T|TEMP|TEMPORADA)\s*0*(\d+)\s*(?:[-–—]\s*)?(?:EP|E)\s*0*(\d+)\s*$/i
-  ];
+  const episodeFirst = value.match(
+    /^(.*?)\s+(?:EP|E)\s*0*(\d+)\s*(?:[-–—]\s*)?(?:T|TEMP|TEMPORADA)\s*0*(\d+)\s*$/i
+  );
 
-  let match = value.match(patterns[0]);
+  if (episodeFirst) {
+    const base = parseTitleAndYear(episodeFirst[1].trim());
 
-  if (match) {
-    const title = match[1].trim();
-    const episode = Number(match[2]);
-    const season = Number(match[3]);
-
-    if (!title || episode < 1 || season < 1) return null;
+    if (!base) return null;
 
     return {
-      title,
-      year: "",
-      episode,
-      season,
-      episodeText: `EP${episode} - T${season}`
+      ...base,
+      episode: Number(episodeFirst[2]),
+      season: Number(episodeFirst[3])
     };
   }
 
-  match = value.match(patterns[1]);
+  const seasonFirst = value.match(
+    /^(.*?)\s+(?:T|TEMP|TEMPORADA)\s*0*(\d+)\s*(?:[-–—]\s*)?(?:EP|E)\s*0*(\d+)\s*$/i
+  );
 
-  if (match) {
-    const title = match[1].trim();
-    const season = Number(match[2]);
-    const episode = Number(match[3]);
+  if (seasonFirst) {
+    const base = parseTitleAndYear(seasonFirst[1].trim());
 
-    if (!title || episode < 1 || season < 1) return null;
+    if (!base) return null;
 
     return {
-      title,
-      year: "",
-      episode,
-      season,
-      episodeText: `EP${episode} - T${season}`
+      ...base,
+      episode: Number(seasonFirst[3]),
+      season: Number(seasonFirst[2])
     };
   }
 
@@ -298,27 +291,49 @@ function commandArgument(message, command) {
   return text.slice(command.length).trim();
 }
 
+function decodeTag(value) {
+  return String(value || "")
+    .replace(/\\s/g, " ")
+    .replace(/\\:/g, ";")
+    .replace(/\\\\/g, "\\")
+    .replace(/\\r/g, "\r")
+    .replace(/\\n/g, "\n");
+}
+
+function parseTags(raw) {
+  const tags = {};
+
+  for (const pair of String(raw || "").split(";")) {
+    const separator = pair.indexOf("=");
+    const key = separator >= 0 ? pair.slice(0, separator) : pair;
+    const value = separator >= 0 ? pair.slice(separator + 1) : "";
+
+    tags[key] = decodeTag(value);
+  }
+
+  return tags;
+}
+
 async function applyCommand(type, parsed, username) {
   try {
     lastError = null;
 
-    /*
-      Em séries com episódio, a TMDB recebe apenas o nome da série.
-      Exemplo: "Elite EP1 - T2" pesquisa somente "Elite".
-    */
-    const tmdbResult = await searchTmdb(type, parsed.title, parsed.year);
+    const found = await searchTmdb(type, parsed.title, parsed.year);
 
-    const displayTitle =
-      type === "tv" && parsed.episodeText
-        ? `${tmdbResult.title} ${parsed.episodeText}`
-        : tmdbResult.title;
+    const episodeText =
+      type === "tv" && parsed.episode && parsed.season
+        ? `EP${parsed.episode} - T${parsed.season}`
+        : "";
+
+    const displayTitle = episodeText
+      ? `${found.title} ${episodeText}`
+      : found.title;
 
     state = {
-      ...tmdbResult,
-      baseTitle: tmdbResult.title,
+      ...found,
+      baseTitle: found.title,
       title: displayTitle,
       displayTitle,
-      displayText: `Estamos assistindo ${displayTitle}`,
       episode: parsed.episode || null,
       season: parsed.season || null,
       updatedBy: username || "chat"
@@ -332,17 +347,21 @@ async function applyCommand(type, parsed, username) {
     };
 
     saveState();
-    broadcastState();
+    broadcast();
 
-    console.log(`[comando] ${state.displayText}`);
+    console.log(`[comando] ${lastCommand.command} -> ${displayTitle}`);
   } catch (error) {
     lastError = error.message;
     console.error("[comando]", error.message);
   }
 }
 
-function handleChatMessage(username, message) {
-  lastChatAt = new Date().toISOString();
+function handleMessage(username, message) {
+  lastChatMessage = {
+    user: username || "chat",
+    text: message,
+    at: new Date().toISOString()
+  };
 
   let argument = commandArgument(message, "!tf");
 
@@ -367,42 +386,12 @@ function handleChatMessage(username, message) {
   }
 }
 
-function decodeTag(value) {
-  return String(value || "")
-    .replace(/\\s/g, " ")
-    .replace(/\\:/g, ";")
-    .replace(/\\\\/g, "\\")
-    .replace(/\\r/g, "\r")
-    .replace(/\\n/g, "\n");
-}
-
-function parseTags(raw) {
-  const tags = {};
-
-  for (const pair of String(raw || "").split(";")) {
-    const separator = pair.indexOf("=");
-    const key = separator >= 0 ? pair.slice(0, separator) : pair;
-    const value = separator >= 0 ? pair.slice(separator + 1) : "";
-    tags[key] = decodeTag(value);
-  }
-
-  return tags;
-}
-
 function writeIrc(line) {
-  if (!irc || irc.destroyed) return;
-  irc.write(`${line}\r\n`);
+  if (!socket || socket.destroyed) return;
+  socket.write(`${line}\r\n`);
 }
 
-function joinConfiguredChannels() {
-  for (const channel of CHANNELS) {
-    if (!joinedChannels.has(channel)) {
-      writeIrc(`JOIN #${channel}`);
-    }
-  }
-}
-
-function processIrcLine(line) {
+function processLine(line) {
   if (!line) return;
 
   if (line.startsWith("PING")) {
@@ -411,36 +400,32 @@ function processIrcLine(line) {
   }
 
   if (line.includes(" RECONNECT")) {
-    irc?.destroy();
+    socket?.destroy();
     return;
   }
 
-  if (/\s001\s/.test(line)) {
-    joinConfiguredChannels();
+  if (/\s001\s/.test(line) && !joined) {
+    joined = true;
+    writeIrc(`JOIN #${CHANNEL}`);
+    console.log(`[twitch] Entrando em #${CHANNEL}`);
     return;
   }
 
-  const joinMatch = line.match(/:([^!]+)![^ ]+\sJOIN\s#([^\s]+)/i);
-
-  if (joinMatch && /^justinfan/i.test(joinMatch[1])) {
-    joinedChannels.add(joinMatch[2].toLowerCase());
-    console.log(`[twitch] Entrou em #${joinMatch[2].toLowerCase()}`);
-    return;
-  }
-
-  const messageMatch = line.match(
-    /^(?:@([^ ]+)\s+)?:([^!]+)![^ ]+\sPRIVMSG\s#([^\s]+)\s:(.*)$/i
+  const match = line.match(
+    /^(?:@([^ ]+)\s+)?:([^!]+)![^ ]+\sPRIVMSG\s(#[^ ]+)\s:(.*)$/i
   );
 
-  if (!messageMatch) return;
+  if (!match) return;
 
-  const tags = parseTags(messageMatch[1] || "");
-  const username = tags["display-name"] || messageMatch[2];
-  const channel = messageMatch[3].toLowerCase();
-  const message = messageMatch[4];
+  const tags = parseTags(match[1] || "");
+  const username = tags["display-name"] || match[2];
+  const channel = match[3].replace(/^#/, "").toLowerCase();
+  const message = match[4];
 
-  console.log(`[chat #${channel}] ${username}: ${message}`);
-  handleChatMessage(username, message);
+  if (channel !== CHANNEL) return;
+
+  console.log(`[chat] ${username}: ${message}`);
+  handleMessage(username, message);
 }
 
 function scheduleReconnect() {
@@ -463,15 +448,15 @@ function scheduleReconnect() {
 
 function connectTwitch() {
   try {
-    irc?.destroy();
+    socket?.destroy();
   } catch {}
 
   ircBuffer = "";
-  joinedChannels = new Set();
+  joined = false;
 
   const nickname = `justinfan${Math.floor(10000 + Math.random() * 89999)}`;
 
-  irc = tls.connect(
+  socket = tls.connect(
     {
       host: "irc.chat.twitch.tv",
       port: 6697,
@@ -485,34 +470,34 @@ function connectTwitch() {
       writeIrc("PASS SCHMOOPIIE");
       writeIrc(`NICK ${nickname}`);
 
-      console.log(`[twitch] Conectando como ${nickname}`);
+      console.log(`[twitch] Conectado como ${nickname}`);
     }
   );
 
-  irc.setKeepAlive(true, 30000);
-  irc.setTimeout(300000);
+  socket.setKeepAlive(true, 30000);
+  socket.setTimeout(300000);
 
-  irc.on("data", chunk => {
+  socket.on("data", chunk => {
     ircBuffer += chunk.toString("utf8");
 
     const lines = ircBuffer.split(/\r?\n/);
     ircBuffer = lines.pop() || "";
 
     for (const line of lines) {
-      processIrcLine(line);
+      processLine(line);
     }
   });
 
-  irc.on("timeout", () => {
+  socket.on("timeout", () => {
     writeIrc(`PING :tela2-${Date.now()}`);
   });
 
-  irc.on("error", error => {
+  socket.on("error", error => {
     lastError = error.message;
     console.error("[twitch]", error.message);
   });
 
-  irc.on("close", () => {
+  socket.on("close", () => {
     console.error("[twitch] Conexão encerrada");
     scheduleReconnect();
   });
@@ -526,7 +511,7 @@ function createServer() {
     );
 
     if (request.method === "OPTIONS") {
-      response.writeHead(204, responseHeaders());
+      response.writeHead(204, commonHeaders());
       response.end();
       return;
     }
@@ -547,12 +532,12 @@ function createServer() {
     if (url.pathname === "/health") {
       sendJson(response, 200, {
         ok: true,
-        channels: CHANNELS,
-        twitchConnected: Boolean(irc && !irc.destroyed),
-        joinedChannels: [...joinedChannels],
+        channel: CHANNEL,
+        twitchConnected: Boolean(socket && !socket.destroyed),
+        joined,
         hasContent: Boolean(state),
-        connectedWidgets: eventClients.size,
-        lastChatAt,
+        connectedWidgets: streams.size,
+        lastChatMessage,
         lastCommand,
         lastError,
         uptimeSeconds: Math.floor(process.uptime())
@@ -567,27 +552,27 @@ function createServer() {
 
     if (url.pathname === "/events") {
       response.writeHead(200, {
-        ...responseHeaders("text/event-stream; charset=utf-8"),
+        ...commonHeaders("text/event-stream; charset=utf-8"),
         Connection: "keep-alive",
         "X-Accel-Buffering": "no"
       });
 
       response.write(": conectado\n\n");
-      eventClients.add(response);
-      sendStateEvent(response, state);
+      streams.add(response);
+      sendEvent(response, state);
 
       const heartbeat = setInterval(() => {
         try {
           response.write(`: ping ${Date.now()}\n\n`);
         } catch {
           clearInterval(heartbeat);
-          eventClients.delete(response);
+          streams.delete(response);
         }
       }, 15000);
 
       request.on("close", () => {
         clearInterval(heartbeat);
-        eventClients.delete(response);
+        streams.delete(response);
       });
 
       return;
@@ -601,14 +586,13 @@ function createServer() {
 }
 
 function runSelfTest() {
-  const tests = [
+  const cases = [
     {
       input: "Elite EP1 - T2",
       expected: {
         title: "Elite",
         episode: 1,
-        season: 2,
-        episodeText: "EP1 - T2"
+        season: 2
       }
     },
     {
@@ -616,32 +600,31 @@ function runSelfTest() {
       expected: {
         title: "Elite",
         episode: 1,
-        season: 2,
-        episodeText: "EP1 - T2"
+        season: 2
       }
     },
     {
-      input: "Dark 2017",
+      input: "Elite 2018",
       expected: {
-        title: "Dark",
-        year: "2017"
+        title: "Elite",
+        year: "2018"
       }
     }
   ];
 
-  for (const test of tests) {
+  for (const test of cases) {
     const actual = parseSeries(test.input);
 
-    for (const [key, value] of Object.entries(test.expected)) {
-      if (!actual || actual[key] !== value) {
+    for (const [key, expectedValue] of Object.entries(test.expected)) {
+      if (!actual || actual[key] !== expectedValue) {
         throw new Error(
-          `Falha no teste "${test.input}": ${key} deveria ser ${value}`
+          `Falha em "${test.input}": ${key} deveria ser ${expectedValue}`
         );
       }
     }
   }
 
-  console.log("[teste] Comandos !tf e !ts validados");
+  console.log("[teste] Parser de !ts validado");
 }
 
 if (process.argv.includes("--self-test")) {
@@ -657,7 +640,7 @@ server.requestTimeout = 30000;
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`[http] Serviço iniciado na porta ${PORT}`);
-  console.log(`[twitch] Canais: ${CHANNELS.join(", ")}`);
+  console.log(`[twitch] Canal: ${CHANNEL}`);
   connectTwitch();
 });
 
@@ -669,12 +652,14 @@ function shutdown(signal) {
   }
 
   try {
-    irc?.destroy();
+    socket?.destroy();
   } catch {}
 
   server.close(() => process.exit(0));
 
-  setTimeout(() => process.exit(0), 5000).unref();
+  setTimeout(() => {
+    process.exit(0);
+  }, 5000).unref();
 }
 
 process.on("SIGTERM", () => shutdown("SIGTERM"));

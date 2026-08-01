@@ -1,10 +1,7 @@
-TELA2 - COMANDOS CORRIGIDOS
+TELA2 CORRIGIDO
 
-Arquivos na raiz:
-README.md
-README.txt
-package.json
-server.js
+CANAL FIXO:
+icarolinaporto
 
 RENDER:
 Build Command: npm install
@@ -16,9 +13,6 @@ COMANDOS:
 !ts Elite 2018
 !ts Elite EP1 - T2
 !ts Elite T2 - EP1
-
-CANAL:
-icarolinaporto
 
 DIAGNOSTICO:
 https://tela2.onrender.com/health

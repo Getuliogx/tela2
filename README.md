@@ -1,10 +1,16 @@
 # tela2
 
-Servidor do overlay **Assistindo Agora**.
+Projeto corrigido usando o arquivo original enviado.
+
+## Canal
+
+```text
+icarolinaporto
+```
+
+O canal está fixo no `server.js` e não depende de variável antiga do Render.
 
 ## Render
-
-Use exatamente:
 
 ```text
 Build Command: npm install
@@ -21,7 +27,7 @@ Health Check Path: /ping
 !ts Elite T2 - EP1
 ```
 
-O canal `icarolinaporto` já está incluído no código.
+O comando `!ts Elite EP1 - T2` pesquisa apenas `Elite` na TMDB e envia ao StreamElements o título `Elite EP1 - T2`.
 
 ## Diagnóstico
 
@@ -29,4 +35,4 @@ O canal `icarolinaporto` já está incluído no código.
 https://tela2.onrender.com/health
 ```
 
-`joinedChannels` deve conter `icarolinaporto`.
+Depois de enviar um comando, `lastChatMessage` e `lastCommand` mostram o que o servidor recebeu.
