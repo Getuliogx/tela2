@@ -232,24 +232,49 @@ function parseTitleAndYear(raw) {
   return title ? { title, year: match[2] } : null;
 }
 
-function parseSeriesTitleEpisodeAndSeason(raw) {
+function parseSeriesCommand(raw) {
   const value = String(raw || "").trim();
   if (!value) return null;
 
-  // Exemplo aceito: !ts elite EP1 - T2
-  // A busca na TMDB usa somente "elite" e o overlay exibe o episódio/temporada.
-  const episodeMatch = value.match(
-    /^(.*?)\s+EP\s*(\d+)\s*-\s*T\s*(\d+)$/i
+  // Exemplo aceito: !ts Elite EP1 - T2
+  let match = value.match(
+    /^(.*?)\s+(?:EP|E)\s*0*(\d+)\s*(?:[-–—]\s*)?(?:T|TEMP|TEMPORADA)\s*0*(\d+)\s*$/i
   );
 
-  if (episodeMatch) {
-    const title = episodeMatch[1].trim();
-    if (!title) return null;
+  if (match) {
+    const title = match[1].trim();
+    const episode = Number(match[2]);
+    const season = Number(match[3]);
+
+    if (!title || episode < 1 || season < 1) return null;
 
     return {
       title,
       year: "",
-      episodeInfo: `EP${episodeMatch[2]} - T${episodeMatch[3]}`
+      episode,
+      season,
+      episodeText: `EP${episode} - T${season}`
+    };
+  }
+
+  // Também aceita: !ts Elite T2 - EP1
+  match = value.match(
+    /^(.*?)\s+(?:T|TEMP|TEMPORADA)\s*0*(\d+)\s*(?:[-–—]\s*)?(?:EP|E)\s*0*(\d+)\s*$/i
+  );
+
+  if (match) {
+    const title = match[1].trim();
+    const season = Number(match[2]);
+    const episode = Number(match[3]);
+
+    if (!title || episode < 1 || season < 1) return null;
+
+    return {
+      title,
+      year: "",
+      episode,
+      season,
+      episodeText: `EP${episode} - T${season}`
     };
   }
 
@@ -290,26 +315,29 @@ function parseTags(raw) {
 
 async function applyCommand(type, parsed, username) {
   try {
+    // A TMDB recebe apenas o nome da série. EP/T são usados somente na exibição.
     const next = await searchTmdb(type, parsed.title, parsed.year);
-    const episodeInfo = type === "tv" ? parsed.episodeInfo || "" : "";
+
+    const displayTitle =
+      type === "tv" && parsed.episodeText
+        ? `${next.title} ${parsed.episodeText}`
+        : next.title;
 
     state = {
       ...next,
       baseTitle: next.title,
-      episodeInfo,
-      title: episodeInfo
-        ? `Estamos assistindo ${next.title} ${episodeInfo}`
-        : next.title,
+      title: displayTitle,
+      displayTitle,
+      displayText: `Estamos assistindo ${displayTitle}`,
+      episode: parsed.episode || null,
+      season: parsed.season || null,
       updatedBy: username || "chat"
     };
 
     saveState();
     broadcast();
 
-    console.log(
-      `[comando] ${state.typeLabel}: ${state.title}` +
-      `${state.year ? ` (${state.year})` : ""}`
-    );
+    console.log(`[comando] ${state.displayText}`);
   } catch (error) {
     console.error("[tmdb]", error.message);
   }
@@ -327,7 +355,7 @@ function handleMessage(username, message) {
   argument = commandArgument(message, "!ts");
 
   if (argument !== null) {
-    const parsed = parseSeriesTitleEpisodeAndSeason(argument);
+    const parsed = parseSeriesCommand(argument);
     if (parsed) applyCommand("tv", parsed, username);
   }
 }

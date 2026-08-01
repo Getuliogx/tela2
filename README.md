@@ -2,23 +2,31 @@
 
 Servidor simples do overlay **Assistindo Agora**.
 
-## Comandos
+Arquivos do repositório:
 
-```text
-!tf Nome do filme 2024
-!ts Nome da série 2024
-!ts Elite EP1 - T2
-```
+- `README.md`
+- `README.txt`
+- `package.json`
+- `server.js`
 
-Com `!ts Elite EP1 - T2`, a busca na TMDB usa apenas `Elite` e o overlay exibe:
-
-```text
-Estamos assistindo Elite EP1 - T2
-```
-
-## Render
+Render:
 
 ```text
 Build Command: npm start
 Start Command: npm install
 ```
+
+Comandos:
+
+```text
+!tf Nome do filme 2024
+!ts Nome da série 2024
+```
+
+## Série com episódio e temporada
+
+```text
+!ts Elite EP1 - T2
+```
+
+A TMDB pesquisa somente `Elite`, e o overlay mostra `Elite EP1 - T2`.
