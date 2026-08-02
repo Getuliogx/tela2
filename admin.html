@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Painel do Overlay</title>
+<style>
+:root{color-scheme:dark;--bg:#09090d;--panel:#13131a;--panel2:#1a1a23;--line:#2b2b38;--text:#f4f4f7;--muted:#a4a4b2;--accent:#a855f7;--accent2:#7c3aed;--danger:#ef4444;--ok:#22c55e}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#1b1029 0,#09090d 42%);color:var(--text);font-family:Inter,Segoe UI,Arial,sans-serif;min-height:100vh}.wrap{width:min(1180px,calc(100% - 28px));margin:0 auto;padding:26px 0 60px}.top{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:22px}.brand h1{margin:0;font-size:clamp(24px,4vw,38px)}.brand p{margin:7px 0 0;color:var(--muted)}.status{padding:9px 13px;border:1px solid var(--line);background:#111118;border-radius:999px;color:var(--muted);font-size:13px}.status.ok{border-color:#245f38;color:#8ff0aa}.panel{background:rgba(19,19,26,.96);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.34);margin-bottom:18px}.panel h2{margin:0 0 15px;font-size:18px}.current{display:flex;align-items:center;gap:15px;min-height:86px}.current img{width:58px;height:82px;object-fit:cover;border-radius:9px;background:#23232d}.current .title{font-size:20px;font-weight:800}.current .meta{color:var(--muted);margin-top:5px}.grid-form{display:grid;grid-template-columns:150px 1fr 120px auto;gap:10px}.field{background:#0e0e14;border:1px solid var(--line);border-radius:11px;padding:12px 13px;color:var(--text);font:inherit;outline:none}.field:focus{border-color:var(--accent)}button{border:0;border-radius:11px;padding:12px 15px;font:inherit;font-weight:800;cursor:pointer}.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:white}.secondary{background:#262633;color:var(--text)}.danger{background:#3b171c;color:#ffb4bd}.small{padding:9px 11px;font-size:13px}.results,.saved{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:14px}.card{display:flex;gap:12px;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:11px;min-width:0}.card img{width:72px;height:105px;object-fit:cover;border-radius:8px;background:#252530;flex:0 0 auto}.card-body{min-width:0;display:flex;flex-direction:column;flex:1}.card-title{font-weight:850;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-meta{color:var(--muted);font-size:13px;margin-top:4px}.card-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:auto;padding-top:9px}.empty{color:var(--muted);padding:18px 0}.notice{position:fixed;right:18px;bottom:18px;max-width:360px;background:#171721;border:1px solid var(--line);border-radius:13px;padding:13px 15px;box-shadow:0 12px 40px rgba(0,0,0,.5);opacity:0;transform:translateY(10px);pointer-events:none;transition:.2s}.notice.show{opacity:1;transform:none}.notice.error{border-color:#6f2630;color:#ffb4bd}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.grow{flex:1;min-width:230px}.password{max-width:240px}.hint{color:var(--muted);font-size:13px;margin-top:10px}.spinner{display:none;margin-left:8px}.busy .spinner{display:inline}.section-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.count{color:var(--muted);font-size:13px}
+@media(max-width:760px){.top{align-items:flex-start;flex-direction:column}.grid-form{grid-template-columns:1fr 1fr}.grid-form .query{grid-column:1/-1}.grid-form .search-btn{grid-column:1/-1}.row .password{max-width:none;flex:1}.results,.saved{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand"><h1>Painel do Overlay</h1><p>Pesquise, salve e atualize o “Assistindo Agora”.</p></div>
+    <div id="connectionStatus" class="status">Conectando…</div>
+  </div>
+
+  <section class="panel">
+    <div class="section-head"><h2>Agora na overlay</h2><button id="refreshState" class="secondary small">Atualizar estado</button></div>
+    <div id="current" class="current"><div class="empty">Nenhum título enviado ainda.</div></div>
+  </section>
+
+  <section class="panel">
+    <h2>Pesquisar filme ou série</h2>
+    <form id="searchForm" class="grid-form">
+      <select id="type" class="field"><option value="movie">Filme</option><option value="tv">Série</option></select>
+      <input id="query" class="field query" placeholder="Digite o nome" autocomplete="off" required>
+      <input id="year" class="field" inputmode="numeric" maxlength="4" placeholder="Ano">
+      <button class="primary search-btn" type="submit">Pesquisar <span class="spinner">…</span></button>
+    </form>
+    <div class="row" style="margin-top:10px">
+      <input id="suffix" class="field grow" placeholder="Complemento opcional, exemplo: EP1 - T2">
+      <input id="adminPassword" class="field password" type="password" placeholder="Senha do painel (se configurada)">
+    </div>
+    <div class="hint">“Atualizar overlay” troca o card imediatamente. “Salvar” mantém o título na lista abaixo.</div>
+    <div id="results" class="results"><div class="empty">Faça uma pesquisa.</div></div>
+  </section>
+
+  <section class="panel">
+    <div class="section-head"><h2>Títulos salvos</h2><span id="savedCount" class="count">0 salvos</span></div>
+    <div id="saved" class="saved"><div class="empty">Nenhum título salvo.</div></div>
+  </section>
+</div>
+<div id="notice" class="notice"></div>
+<script>
+(() => {
+  "use strict";
+  const LOCAL_KEY = "tela2-painel-salvos-v1";
+  const PASSWORD_KEY = "tela2-admin-password";
+  const $ = selector => document.querySelector(selector);
+  const resultsEl = $("#results");
+  const savedEl = $("#saved");
+  const currentEl = $("#current");
+  const noticeEl = $("#notice");
+  const passwordEl = $("#adminPassword");
+  let saved = loadLocal();
+
+  passwordEl.value = localStorage.getItem(PASSWORD_KEY) || "";
+  passwordEl.addEventListener("input", () => localStorage.setItem(PASSWORD_KEY, passwordEl.value));
+
+  function keyOf(item){return item.type + ":" + item.tmdbId}
+  function escapeHtml(value){return String(value||"").replace(/[&<>\"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"})[ch])}
+  function loadLocal(){try{const value=JSON.parse(localStorage.getItem(LOCAL_KEY)||"[]");return Array.isArray(value)?value:[]}catch{return []}}
+  function saveLocal(){localStorage.setItem(LOCAL_KEY,JSON.stringify(saved))}
+  function mergeSaved(items){const map=new Map();for(const item of [...saved,...items]){if(item&&item.tmdbId)map.set(keyOf(item),item)}saved=[...map.values()];saveLocal();renderSaved()}
+  function headers(){return {"Content-Type":"application/json","X-Admin-Password":passwordEl.value}}
+  function notify(message,error=false){noticeEl.textContent=message;noticeEl.className="notice show"+(error?" error":"");clearTimeout(notify.timer);notify.timer=setTimeout(()=>noticeEl.className="notice",2800)}
+  async function api(url,options={}){const response=await fetch(url,{cache:"no-store",...options,headers:{...headers(),...(options.headers||{})}});let payload=null;try{payload=await response.json()}catch{}if(!response.ok)throw new Error(payload?.error||("Erro "+response.status));return payload}
+  function cardHtml(item,savedMode=false){const poster=item.poster?`<img src="${escapeHtml(item.poster)}" alt="">`:`<img alt="">`;return `<article class="card">${poster}<div class="card-body"><div class="card-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div><div class="card-meta">${escapeHtml(item.typeLabel|| (item.type==="tv"?"Série":"Filme"))}${item.year?" • "+escapeHtml(item.year):""}</div><div class="card-actions"><button class="primary small" data-action="update" data-key="${escapeHtml(keyOf(item))}">Atualizar overlay</button>${savedMode?`<button class="danger small" data-action="remove" data-key="${escapeHtml(keyOf(item))}">Excluir</button>`:`<button class="secondary small" data-action="save" data-key="${escapeHtml(keyOf(item))}">Salvar</button>`}</div></div></article>`}
+  function renderResults(items){window.__searchResults=items;resultsEl.innerHTML=items.length?items.map(item=>cardHtml(item,false)).join(""):`<div class="empty">Nenhum resultado encontrado.</div>`}
+  function renderSaved(){window.__savedItems=saved;savedEl.innerHTML=saved.length?saved.map(item=>cardHtml(item,true)).join(""):`<div class="empty">Nenhum título salvo.</div>`;$("#savedCount").textContent=saved.length+" salvo"+(saved.length===1?"":"s")}
+  function renderCurrent(item){if(!item){currentEl.innerHTML=`<div class="empty">Nenhum título enviado ainda.</div>`;return}currentEl.innerHTML=`${item.poster?`<img src="${escapeHtml(item.poster)}" alt="">`:`<img alt="">`}<div><div class="title">${escapeHtml(item.displayTitle||item.title)}</div><div class="meta">${escapeHtml(item.typeLabel||"")}${item.year?" • "+escapeHtml(item.year):""}</div></div>`}
+  async function refreshState(){try{const response=await fetch("/state?t="+Date.now(),{cache:"no-store"});renderCurrent(response.ok?await response.json():null);$("#connectionStatus").textContent="Overlay conectada";$("#connectionStatus").className="status ok"}catch{$("#connectionStatus").textContent="Sem conexão";$("#connectionStatus").className="status"}}
+  async function loadServerSaved(){try{const payload=await api("/api/saved");mergeSaved(payload.items||[])}catch(error){if(error.message.includes("Senha"))notify(error.message,true)}}
+  $("#searchForm").addEventListener("submit",async event=>{event.preventDefault();const form=event.currentTarget;form.classList.add("busy");try{const params=new URLSearchParams({type:$("#type").value,q:$("#query").value.trim(),year:$("#year").value.trim()});const payload=await api("/api/search?"+params);renderResults(payload.results||[])}catch(error){notify(error.message,true)}finally{form.classList.remove("busy")}});
+  async function updateItem(item){try{const payload=await api("/api/overlay",{method:"POST",body:JSON.stringify({item,suffix:$("#suffix").value.trim()})});renderCurrent(payload.state);notify("Overlay atualizada: "+payload.state.title)}catch(error){notify(error.message,true)}}
+  async function addItem(item){saved=[item,...saved.filter(entry=>keyOf(entry)!==keyOf(item))];saveLocal();renderSaved();try{await api("/api/saved",{method:"POST",body:JSON.stringify({item})});notify("Título salvo") }catch(error){notify("Salvo neste navegador. "+error.message,true)}}
+  async function removeItem(item){saved=saved.filter(entry=>keyOf(entry)!==keyOf(item));saveLocal();renderSaved();try{await api("/api/saved/"+encodeURIComponent(item.type)+"/"+encodeURIComponent(item.tmdbId),{method:"DELETE"});notify("Título removido")}catch(error){notify("Removido deste navegador. "+error.message,true)}}
+  async function handleCards(event,source){const button=event.target.closest("button[data-action]");if(!button)return;const items=source==="saved"?window.__savedItems:window.__searchResults;const item=(items||[]).find(entry=>keyOf(entry)===button.dataset.key);if(!item)return;button.disabled=true;try{if(button.dataset.action==="update")await updateItem(item);if(button.dataset.action==="save")await addItem(item);if(button.dataset.action==="remove")await removeItem(item)}finally{button.disabled=false}}
+  resultsEl.addEventListener("click",event=>handleCards(event,"results"));
+  savedEl.addEventListener("click",event=>handleCards(event,"saved"));
+  $("#refreshState").addEventListener("click",refreshState);
+  renderSaved();refreshState();loadServerSaved();setInterval(refreshState,5000);
+})();
+</script>
+</body>
+</html>

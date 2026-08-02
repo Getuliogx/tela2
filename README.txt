@@ -1,12 +1,18 @@
-TELA2 - EPISODIO E TEMPORADA CORRIGIDOS
+TELA2 - PAINEL ADM
 
-CANAL: icarolinaporto
+PAINEL:
+https://tela2.onrender.com/admin
 
-COMANDOS:
-!tf Alien 1979
-!ts Elite 2018
-!ts Elite EP1 - T2
-!ts The Office T2 - EP3
+RENDER:
+Build Command: npm install
+Start Command: npm start
+Health Check Path: /ping
 
-Foi alterado somente o server.js.
-O widget do StreamElements não precisa ser alterado.
+USO:
+1. Pesquise um filme ou uma serie.
+2. Clique em Salvar para guardar na lista.
+3. Clique em Atualizar overlay para trocar o card imediatamente.
+4. O campo Complemento aceita, por exemplo: EP1 - T2.
+
+SENHA OPCIONAL:
+Variavel do Render: ADMIN_PASSWORD

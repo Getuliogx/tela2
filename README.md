@@ -1,16 +1,30 @@
-# tela2
+# tela2 — painel administrativo
 
-Correção somente do comando de série com episódio e temporada.
+Painel para pesquisar filmes e séries, salvar títulos e atualizar a overlay com um clique.
 
-## Comandos
+## Endereço do painel
 
 ```text
-!tf Alien 1979
-!ts Elite 2018
-!ts Elite EP1 - T2
-!ts The Office T2 - EP3
+https://tela2.onrender.com/admin
 ```
 
-O canal usado é `icarolinaporto`.
+## Render
 
-O comando `!ts Elite EP1 - T2` pesquisa apenas `Elite` na TMDB e envia ao widget o título `Elite EP1 - T2`.
+```text
+Build Command: npm install
+Start Command: npm start
+Health Check Path: /ping
+```
+
+## Senha opcional
+
+Crie no Render a variável `ADMIN_PASSWORD` para proteger o painel. Sem essa variável, o painel abre sem senha.
+
+## O que foi mantido
+
+- `/state` e `/events`, usados pelo widget do StreamElements;
+- comandos `!tf` e `!ts` no canal `icarolinaporto`;
+- `!ts Elite EP1 - T2` e `!ts Elite T2 - EP1`;
+- `/ping` para o UptimeRobot.
+
+A lista também fica salva no navegador do painel, então continua aparecendo mesmo quando o Render reinicia.
