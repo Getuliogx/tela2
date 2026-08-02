@@ -208,19 +208,205 @@ function typeLabel(type) {
   return type === "tv" ? "Série" : "Filme";
 }
 
-function mediaFromTmdb(item, type) {
+function escapeXml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function placeholderPoster(title, type) {
+  const safeTitle = escapeXml(String(title || "Sem capa").slice(0, 42));
+  const safeType = type === "tv" ? "SÉRIE" : "FILME";
+  const svg = [
+    '<svg xmlns="http://www.w3.org/2000/svg" width="342" height="513" viewBox="0 0 342 513">',
+    '<defs>',
+    '<linearGradient id="g" x1="0" y1="0" x2="1" y2="1">',
+    '<stop offset="0" stop-color="#2a1740"/>',
+    '<stop offset="1" stop-color="#0b0b10"/>',
+    '</linearGradient>',
+    '</defs>',
+    '<rect width="342" height="513" rx="20" fill="url(#g)"/>',
+    '<rect x="18" y="18" width="306" height="477" rx="16" fill="none" stroke="#a855f7" stroke-opacity=".55" stroke-width="2"/>',
+    '<text x="171" y="220" text-anchor="middle" fill="#a855f7" font-size="23" font-family="Arial, sans-serif" font-weight="700">',
+    safeType,
+    '</text>',
+    '<foreignObject x="34" y="250" width="274" height="150">',
+    '<div xmlns="http://www.w3.org/1999/xhtml" style="color:#fff;font:700 28px Arial,sans-serif;text-align:center;line-height:1.15;word-break:break-word;">',
+    safeTitle,
+    '</div>',
+    '</foreignObject>',
+    '</svg>'
+  ].join("");
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function imageUrl(pathValue, size = "w342") {
+  return pathValue
+    ? `https://image.tmdb.org/t/p/${size}${pathValue}`
+    : "";
+}
+
+function mediaFromTmdb(item, type, resolvedPoster = "") {
+  const title = titleOf(item, type) || originalTitleOf(item, type) || "Sem título";
+
   return {
     tmdbId: Number(item.id),
     type,
-    title: titleOf(item, type) || originalTitleOf(item, type) || "Sem título",
+    title,
     originalTitle: originalTitleOf(item, type) || "",
     year: yearOf(item, type),
     typeLabel: typeLabel(type),
-    poster: item.poster_path
-      ? `https://image.tmdb.org/t/p/w342${item.poster_path}`
-      : "",
+    poster:
+      resolvedPoster ||
+      imageUrl(item.poster_path, "w342") ||
+      imageUrl(item.backdrop_path, "w500") ||
+      placeholderPoster(title, type),
     overview: String(item.overview || "").trim()
   };
+}
+
+function tmdbRequestHeaders() {
+  const headers = { accept: "application/json" };
+
+  if (TMDB_BEARER) {
+    headers.Authorization = `Bearer ${TMDB_BEARER}`;
+  }
+
+  return headers;
+}
+
+async function fetchTmdbJson(url) {
+  if (TMDB_API_KEY && !url.searchParams.has("api_key")) {
+    url.searchParams.set("api_key", TMDB_API_KEY);
+  }
+
+  const response = await fetch(url, {
+    headers: tmdbRequestHeaders(),
+    signal: AbortSignal.timeout(15000)
+  });
+
+  if (!response.ok) {
+    throw new Error(`TMDB respondeu ${response.status}`);
+  }
+
+  return response.json();
+}
+
+function bestImage(images) {
+  return [...images]
+    .filter(image => image && image.file_path)
+    .sort((left, right) => {
+      const leftScore =
+        Number(left.vote_average || 0) * 10 +
+        Math.min(Number(left.vote_count || 0), 100) +
+        Math.min(Number(left.width || 0), 2000) / 1000;
+
+      const rightScore =
+        Number(right.vote_average || 0) * 10 +
+        Math.min(Number(right.vote_count || 0), 100) +
+        Math.min(Number(right.width || 0), 2000) / 1000;
+
+      return rightScore - leftScore;
+    })[0] || null;
+}
+
+async function resolvePoster(item, type) {
+  const directPoster = imageUrl(item.poster_path, "w342");
+
+  if (directPoster) {
+    return directPoster;
+  }
+
+  try {
+    const url = new URL(
+      `https://api.themoviedb.org/3/${type}/${Number(item.id)}/images`
+    );
+
+    url.searchParams.set("include_image_language", "pt,en,null");
+
+    const images = await fetchTmdbJson(url);
+    const poster = bestImage(Array.isArray(images.posters) ? images.posters : []);
+
+    if (poster) {
+      return imageUrl(poster.file_path, "w342");
+    }
+
+    const backdrop = bestImage(
+      Array.isArray(images.backdrops) ? images.backdrops : []
+    );
+
+    if (backdrop) {
+      return imageUrl(backdrop.file_path, "w500");
+    }
+  } catch (error) {
+    console.error(`[capa] ${type}:${item.id} - ${error.message}`);
+  }
+
+  return (
+    imageUrl(item.backdrop_path, "w500") ||
+    placeholderPoster(
+      titleOf(item, type) || originalTitleOf(item, type) || "Sem capa",
+      type
+    )
+  );
+}
+
+async function hydrateMediaItem(item) {
+  if (!validMediaItem(item)) {
+    return item;
+  }
+
+  if (String(item.poster || "").trim()) {
+    return item;
+  }
+
+  const tmdbItem = {
+    id: Number(item.tmdbId),
+    title: item.type === "movie" ? item.title : undefined,
+    name: item.type === "tv" ? item.title : undefined,
+    original_title: item.type === "movie" ? item.originalTitle : undefined,
+    original_name: item.type === "tv" ? item.originalTitle : undefined,
+    release_date: item.type === "movie" && item.year ? `${item.year}-01-01` : "",
+    first_air_date: item.type === "tv" && item.year ? `${item.year}-01-01` : "",
+    poster_path: "",
+    backdrop_path: ""
+  };
+
+  return {
+    ...item,
+    poster: await resolvePoster(tmdbItem, item.type)
+  };
+}
+
+async function mapLimit(items, limit, mapper) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (true) {
+      const index = nextIndex;
+      nextIndex += 1;
+
+      if (index >= items.length) {
+        return;
+      }
+
+      results[index] = await mapper(items[index], index);
+    }
+  }
+
+  await Promise.all(
+    Array.from(
+      { length: Math.min(limit, items.length) },
+      () => worker()
+    )
+  );
+
+  return results;
 }
 
 function scoreResult(item, type, wantedTitle, wantedYear) {
@@ -251,7 +437,7 @@ async function tmdbSearch(type, query, year = "") {
         originalTitle: query,
         year: year || (type === "tv" ? "2018" : "1999"),
         typeLabel: typeLabel(type),
-        poster: "",
+        poster: placeholderPoster(query, type),
         overview: "Resultado de teste"
       }
     ];
@@ -268,29 +454,21 @@ async function tmdbSearch(type, query, year = "") {
     url.searchParams.set(type === "tv" ? "first_air_date_year" : "year", year);
   }
 
-  const headers = { accept: "application/json" };
-  if (TMDB_BEARER) headers.Authorization = `Bearer ${TMDB_BEARER}`;
-
-  const response = await fetch(url, {
-    headers,
-    signal: AbortSignal.timeout(15000)
-  });
-
-  if (!response.ok) {
-    throw new Error(`TMDB respondeu ${response.status}`);
-  }
-
-  const payload = await response.json();
+  const payload = await fetchTmdbJson(url);
   const results = Array.isArray(payload.results) ? payload.results : [];
 
-  return results
+  const selected = results
     .map(item => ({
       item,
       score: scoreResult(item, type, query, year)
     }))
     .sort((left, right) => right.score - left.score)
-    .slice(0, 20)
-    .map(entry => mediaFromTmdb(entry.item, type));
+    .slice(0, 20);
+
+  return mapLimit(selected, 5, async entry => {
+    const poster = await resolvePoster(entry.item, type);
+    return mediaFromTmdb(entry.item, type, poster);
+  });
 }
 
 async function findBestMedia(type, query, year = "") {
@@ -570,6 +748,22 @@ async function handleApi(request, response, url) {
   }
 
   if (request.method === "GET" && url.pathname === "/api/saved") {
+    const hydrated = await mapLimit(
+      savedItems,
+      5,
+      item => hydrateMediaItem(item)
+    );
+
+    const changed = hydrated.some(
+      (item, index) => item.poster !== savedItems[index].poster
+    );
+
+    savedItems = hydrated;
+
+    if (changed) {
+      saveSavedItems();
+    }
+
     sendJson(response, 200, { ok: true, items: savedItems });
     return;
   }
@@ -577,7 +771,7 @@ async function handleApi(request, response, url) {
   if (request.method === "POST" && url.pathname === "/api/saved") {
     try {
       const body = await readJson(request);
-      const item = body.item;
+      const item = await hydrateMediaItem(body.item);
       if (!validMediaItem(item)) throw new Error("Título inválido");
       const key = `${item.type}:${item.tmdbId}`;
       savedItems = [
@@ -607,7 +801,8 @@ async function handleApi(request, response, url) {
   if (request.method === "POST" && url.pathname === "/api/overlay") {
     try {
       const body = await readJson(request);
-      const state = updateOverlay(body.item, body.suffix, "painel adm");
+      const item = await hydrateMediaItem(body.item);
+      const state = updateOverlay(item, body.suffix, "painel adm");
       sendJson(response, 200, { ok: true, state });
     } catch (error) {
       sendJson(response, 400, { ok: false, error: error.message });
@@ -648,7 +843,13 @@ function runSelfTest() {
     throw new Error("Falha ao atualizar a overlay");
   }
 
-  console.log("[teste] Painel, overlay e episódios validados");
+  const fallback = placeholderPoster("Título sem imagem", "movie");
+
+  if (!fallback.startsWith("data:image/svg+xml")) {
+    throw new Error("Falha ao criar capa substituta");
+  }
+
+  console.log("[teste] Painel, overlay, episódios e capas validados");
 }
 
 if (process.argv.includes("--self-test")) {

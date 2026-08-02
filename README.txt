@@ -16,3 +16,10 @@ USO:
 
 SENHA OPCIONAL:
 Variavel do Render: ADMIN_PASSWORD
+
+
+CAPAS:
+- procura poster alternativo na TMDB;
+- usa backdrop quando nao existe poster;
+- cria capa com o titulo quando nao existe nenhuma imagem;
+- corrige itens antigos salvos sem capa.

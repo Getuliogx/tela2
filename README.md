@@ -28,3 +28,15 @@ Crie no Render a variável `ADMIN_PASSWORD` para proteger o painel. Sem essa var
 - `/ping` para o UptimeRobot.
 
 A lista também fica salva no navegador do painel, então continua aparecendo mesmo quando o Render reinicia.
+
+
+## Capas corrigidas
+
+Quando o resultado não traz `poster_path`, o servidor procura outra imagem no endpoint
+`/images` da TMDB. A ordem usada é:
+
+1. pôster;
+2. imagem de fundo;
+3. capa substituta com o título.
+
+Itens antigos salvos sem capa também são atualizados quando o painel abre.
