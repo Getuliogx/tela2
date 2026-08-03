@@ -43,3 +43,12 @@ EXEMPLO:
 Elite EP1 - T2
 !d
 Elite EP2 - T2
+
+
+PROGRESSO POR SERIE:
+- cada serie guarda seu proprio episodio e temporada;
+- trocar de conteudo nao apaga;
+- usar !t nao apaga;
+- excluir da lista nao apaga;
+- ao colocar a serie novamente, o EP/T antigo volta automaticamente;
+- !d e as setas do painel atualizam o progresso salvo.

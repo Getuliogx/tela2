@@ -22,9 +22,11 @@ const TMDB_API_KEY = String(
 
 const STATE_FILE = path.join(__dirname, "state.json");
 const SAVED_FILE = path.join(__dirname, "saved.json");
+const PROGRESS_FILE = path.join(__dirname, "series-progress.json");
 
 let currentState = loadState();
 let savedItems = loadSavedItems();
+let seriesProgress = loadSeriesProgress();
 let ircSocket = null;
 let ircBuffer = "";
 let ircNickname = "";
@@ -73,6 +75,38 @@ function loadSavedItems() {
   return Array.isArray(value) ? value.filter(validMediaItem).slice(0, 200) : [];
 }
 
+function loadSeriesProgress() {
+  const value = loadJson(PROGRESS_FILE, {});
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  const cleaned = {};
+
+  for (const [key, progress] of Object.entries(value)) {
+    const episode = Math.max(1, Math.floor(Number(progress?.episode || 0)));
+    const season = Math.max(1, Math.floor(Number(progress?.season || 0)));
+
+    if (
+      /^tv:\d+$/.test(key) &&
+      episode >= 1 &&
+      season >= 1
+    ) {
+      cleaned[key] = {
+        episode,
+        season,
+        title: String(progress.title || ""),
+        year: String(progress.year || ""),
+        poster: String(progress.poster || ""),
+        updatedAt: String(progress.updatedAt || "")
+      };
+    }
+  }
+
+  return cleaned;
+}
+
 function validMediaItem(value) {
   return Boolean(
     value &&
@@ -89,6 +123,89 @@ function saveState() {
 
 function saveSavedItems() {
   writeJson(SAVED_FILE, savedItems);
+}
+
+function saveSeriesProgress() {
+  writeJson(PROGRESS_FILE, seriesProgress);
+}
+
+function seriesProgressKey(item) {
+  if (!item || item.type !== "tv") {
+    return "";
+  }
+
+  const tmdbId = Number(item.tmdbId);
+
+  return Number.isFinite(tmdbId) && tmdbId > 0
+    ? `tv:${tmdbId}`
+    : "";
+}
+
+function getSeriesProgress(item) {
+  const key = seriesProgressKey(item);
+  const progress = key ? seriesProgress[key] : null;
+
+  if (
+    !progress ||
+    Number(progress.episode) < 1 ||
+    Number(progress.season) < 1
+  ) {
+    return null;
+  }
+
+  return {
+    episode: Math.floor(Number(progress.episode)),
+    season: Math.floor(Number(progress.season)),
+    suffix: `EP${Math.floor(Number(progress.episode))} - T${Math.floor(Number(progress.season))}`
+  };
+}
+
+function rememberSeriesProgress(item, episode, season) {
+  const key = seriesProgressKey(item);
+
+  if (!key) {
+    return null;
+  }
+
+  const normalizedEpisode = Math.max(
+    1,
+    Math.floor(Number(episode) || 1)
+  );
+
+  const normalizedSeason = Math.max(
+    1,
+    Math.floor(Number(season) || 1)
+  );
+
+  seriesProgress[key] = {
+    episode: normalizedEpisode,
+    season: normalizedSeason,
+    title: String(item.baseTitle || item.title || ""),
+    year: String(item.year || ""),
+    poster: String(item.poster || ""),
+    updatedAt: new Date().toISOString()
+  };
+
+  saveSeriesProgress();
+
+  return getSeriesProgress(item);
+}
+
+function decorateWithSeriesProgress(item) {
+  if (!item || item.type !== "tv") {
+    return item;
+  }
+
+  const progress = getSeriesProgress(item);
+
+  return progress
+    ? {
+        ...item,
+        savedEpisode: progress.episode,
+        savedSeason: progress.season,
+        savedSuffix: progress.suffix
+      }
+    : item;
 }
 
 function commonHeaders(contentType = "application/json; charset=utf-8") {
@@ -430,7 +547,7 @@ function scoreResult(item, type, wantedTitle, wantedYear) {
 async function tmdbSearch(type, query, year = "") {
   if (process.env.TMDB_MOCK === "1") {
     return [
-      {
+      decorateWithSeriesProgress({
         tmdbId: type === "tv" ? 1399 : 550,
         type,
         title: query,
@@ -439,7 +556,7 @@ async function tmdbSearch(type, query, year = "") {
         typeLabel: typeLabel(type),
         poster: placeholderPoster(query, type),
         overview: "Resultado de teste"
-      }
+      })
     ];
   }
 
@@ -465,10 +582,12 @@ async function tmdbSearch(type, query, year = "") {
     .sort((left, right) => right.score - left.score)
     .slice(0, 20);
 
-  return mapLimit(selected, 5, async entry => {
+  const hydrated = await mapLimit(selected, 5, async entry => {
     const poster = await resolvePoster(entry.item, type);
     return mediaFromTmdb(entry.item, type, poster);
   });
+
+  return hydrated.map(decorateWithSeriesProgress);
 }
 
 async function findBestMedia(type, query, year = "") {
@@ -489,17 +608,34 @@ function updateOverlay(item, suffix = "", updatedBy = "painel") {
     throw new Error("Filme ou série inválido");
   }
 
-  const extra = cleanSuffix(suffix);
-  const displayTitle = extra ? `${item.title} ${extra}` : item.title;
-  const episodeMatch = extra.match(
+  let extra = cleanSuffix(suffix);
+  let episodeMatch = extra.match(
     /^(?:EP|E)\s*0*(\d+)\s*[-–—]?\s*(?:T|TEMP|TEMPORADA)\s*0*(\d+)$/i
   );
+
+  /*
+    Quando a série é colocada novamente sem EP/T informado,
+    recupera automaticamente o último progresso salvo dela.
+  */
+  if (item.type === "tv" && !extra) {
+    const savedProgress = getSeriesProgress(item);
+
+    if (savedProgress) {
+      extra = savedProgress.suffix;
+      episodeMatch = extra.match(
+        /^(?:EP|E)\s*0*(\d+)\s*[-–—]?\s*(?:T|TEMP|TEMPORADA)\s*0*(\d+)$/i
+      );
+    }
+  }
+
+  const displayTitle = extra ? `${item.title} ${extra}` : item.title;
 
   currentState = {
     revision: Date.now(),
     type: item.type,
     tmdbId: Number(item.tmdbId),
     baseTitle: item.title,
+    originalTitle: String(item.originalTitle || ""),
     title: displayTitle,
     displayTitle,
     episode: episodeMatch ? Number(episodeMatch[1]) : null,
@@ -512,6 +648,18 @@ function updateOverlay(item, suffix = "", updatedBy = "painel") {
     updatedBy,
     updatedAt: new Date().toISOString()
   };
+
+  if (
+    currentState.type === "tv" &&
+    currentState.episode &&
+    currentState.season
+  ) {
+    rememberSeriesProgress(
+      currentState,
+      currentState.episode,
+      currentState.season
+    );
+  }
 
   saveState();
   broadcastState();
@@ -868,7 +1016,10 @@ async function handleApi(request, response, url) {
       saveSavedItems();
     }
 
-    sendJson(response, 200, { ok: true, items: savedItems });
+    sendJson(response, 200, {
+      ok: true,
+      items: savedItems.map(decorateWithSeriesProgress)
+    });
     return;
   }
 
@@ -883,7 +1034,10 @@ async function handleApi(request, response, url) {
         ...savedItems.filter(entry => `${entry.type}:${entry.tmdbId}` !== key)
       ].slice(0, 200);
       saveSavedItems();
-      sendJson(response, 200, { ok: true, items: savedItems });
+      sendJson(response, 200, {
+        ok: true,
+        items: savedItems.map(decorateWithSeriesProgress)
+      });
     } catch (error) {
       sendJson(response, 400, { ok: false, error: error.message });
     }
@@ -898,7 +1052,10 @@ async function handleApi(request, response, url) {
       entry => !(entry.type === type && Number(entry.tmdbId) === tmdbId)
     );
     saveSavedItems();
-    sendJson(response, 200, { ok: true, items: savedItems });
+    sendJson(response, 200, {
+      ok: true,
+      items: savedItems.map(decorateWithSeriesProgress)
+    });
     return;
   }
 
@@ -1082,11 +1239,75 @@ function runSelfTest() {
 
   clearOverlay("autoteste");
 
+  const darkState = updateOverlay(
+    {
+      tmdbId: 2,
+      type: "tv",
+      title: "Dark",
+      year: "2017",
+      typeLabel: "Série",
+      poster: "",
+      overview: ""
+    },
+    "EP7 - T3",
+    "autoteste"
+  );
+
+  if (darkState.title !== "Dark EP7 - T3") {
+    throw new Error("Falha ao guardar progresso de Dark");
+  }
+
+  const restoredElite = updateOverlay(
+    {
+      tmdbId: 1,
+      type: "tv",
+      title: "Elite",
+      year: "2018",
+      typeLabel: "Série",
+      poster: "",
+      overview: ""
+    },
+    "",
+    "autoteste"
+  );
+
+  if (
+    restoredElite.title !== "Elite EP2 - T2" ||
+    restoredElite.episode !== 2 ||
+    restoredElite.season !== 2
+  ) {
+    throw new Error("Falha ao restaurar o progresso antigo de Elite");
+  }
+
+  const restoredDark = updateOverlay(
+    {
+      tmdbId: 2,
+      type: "tv",
+      title: "Dark",
+      year: "2017",
+      typeLabel: "Série",
+      poster: "",
+      overview: ""
+    },
+    "",
+    "autoteste"
+  );
+
+  if (
+    restoredDark.title !== "Dark EP7 - T3" ||
+    restoredDark.episode !== 7 ||
+    restoredDark.season !== 3
+  ) {
+    throw new Error("Falha ao manter progresso separado por série");
+  }
+
+  clearOverlay("autoteste");
+
   if (currentState !== null) {
     throw new Error("Falha ao excluir o conteúdo da overlay");
   }
 
-  console.log("[teste] Painel, !d, !t, episódios e exclusão validados");
+  console.log("[teste] Progresso separado por série, !d e !t validados");
 }
 
 if (process.argv.includes("--self-test")) {

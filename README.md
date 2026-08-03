@@ -94,3 +94,25 @@ POST /api/command
 ```
 
 Isso evita depender da conexão direta do Render com o chat da Twitch.
+
+
+## Progresso separado para cada série
+
+O servidor guarda o último episódio e a última temporada usando o ID da série
+na TMDB.
+
+Exemplo:
+
+1. `Elite EP8 - T3`
+2. troca para um filme ou outra série;
+3. exclui o conteúdo da overlay;
+4. coloca `Elite` novamente.
+
+A overlay volta automaticamente em:
+
+```text
+Elite EP8 - T3
+```
+
+O comando `!d` e as setas do painel também atualizam esse progresso.
+Excluir da overlay ou excluir o título da lista não apaga o progresso da série.
