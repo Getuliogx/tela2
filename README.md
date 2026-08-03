@@ -83,3 +83,14 @@ Elite EP2 - T2
 ```
 
 A temporada é mantida. Se a série ainda não tiver episódio, `!d` começa em `EP1 - T1`.
+
+
+## Correção do comando !d
+
+O `!d` agora é recebido pelo próprio StreamElements e enviado para:
+
+```text
+POST /api/command
+```
+
+Isso evita depender da conexão direta do Render com o chat da Twitch.

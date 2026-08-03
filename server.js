@@ -914,6 +914,102 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === "POST" && url.pathname === "/api/command") {
+    try {
+      const body = await readJson(request);
+      const rawCommand = String(body.command || "").trim();
+      const username = String(body.user || "chat").trim() || "chat";
+      const normalized = rawCommand.toLocaleLowerCase("pt-BR");
+
+      if (normalized === "!d") {
+        const state = advanceEpisode(username);
+
+        lastCommand = {
+          command: "!d",
+          result: state.title,
+          user: username,
+          at: new Date().toISOString()
+        };
+
+        lastError = null;
+        sendJson(response, 200, { ok: true, state });
+        return;
+      }
+
+      if (normalized === "!t") {
+        clearOverlay(username);
+
+        lastCommand = {
+          command: "!t",
+          result: "Overlay removida",
+          user: username,
+          at: new Date().toISOString()
+        };
+
+        lastError = null;
+        sendJson(response, 200, { ok: true, state: null });
+        return;
+      }
+
+      let argument = commandArgument(rawCommand, "!tf");
+
+      if (argument !== null) {
+        const parsed = parseTitleAndYear(argument);
+
+        if (!parsed) {
+          throw new Error("Use !tf seguido do nome do filme");
+        }
+
+        const item = await findBestMedia("movie", parsed.title, parsed.year || "");
+        const state = updateOverlay(item, "", username);
+
+        lastCommand = {
+          command: "!tf",
+          result: state.title,
+          user: username,
+          at: new Date().toISOString()
+        };
+
+        lastError = null;
+        sendJson(response, 200, { ok: true, state });
+        return;
+      }
+
+      argument = commandArgument(rawCommand, "!ts");
+
+      if (argument !== null) {
+        const parsed = parseSeries(argument);
+
+        if (!parsed) {
+          throw new Error("Use !ts seguido do nome da série");
+        }
+
+        const item = await findBestMedia("tv", parsed.title, parsed.year || "");
+        const state = updateOverlay(item, parsed.suffix || "", username);
+
+        lastCommand = {
+          command: "!ts",
+          result: state.title,
+          user: username,
+          at: new Date().toISOString()
+        };
+
+        lastError = null;
+        sendJson(response, 200, { ok: true, state });
+        return;
+      }
+
+      throw new Error("Comando inválido");
+    } catch (error) {
+      lastError = error.message;
+      sendJson(response, 400, {
+        ok: false,
+        error: error.message
+      });
+    }
+    return;
+  }
+
   if (request.method === "DELETE" && url.pathname === "/api/overlay") {
     clearOverlay("painel adm");
 
