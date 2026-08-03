@@ -29,3 +29,17 @@ EPISODIO E TEMPORADA:
 - aparecem automaticamente quando a overlay atual e uma serie;
 - digitar atualiza sozinho;
 - clicar nas setas para cima ou para baixo atualiza sozinho.
+
+
+EXCLUIR DA OVERLAY:
+- botao "Excluir da overlay" no painel;
+- comando !t no chat.
+
+
+COMANDO PARA PROXIMO EPISODIO:
+!d
+
+EXEMPLO:
+Elite EP1 - T2
+!d
+Elite EP2 - T2

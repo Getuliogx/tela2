@@ -519,6 +519,69 @@ function updateOverlay(item, suffix = "", updatedBy = "painel") {
   return currentState;
 }
 
+function clearOverlay(updatedBy = "painel") {
+  currentState = null;
+  lastError = null;
+
+  writeJson(STATE_FILE, null);
+  broadcastState();
+
+  console.log(`[overlay] Removida por ${updatedBy}`);
+  return currentState;
+}
+
+function stripEpisodeSuffix(value) {
+  return String(value || "")
+    .replace(
+      /\s+(?:EP|E)\s*0*\d+\s*[-–—]?\s*(?:T|TEMP|TEMPORADA)\s*0*\d+\s*$/i,
+      ""
+    )
+    .trim();
+}
+
+function advanceEpisode(updatedBy = "chat") {
+  if (!currentState) {
+    throw new Error("Não existe série na overlay");
+  }
+
+  if (currentState.type !== "tv") {
+    throw new Error("O conteúdo atual não é uma série");
+  }
+
+  const currentEpisode = Math.max(
+    0,
+    Number(currentState.episode || 0)
+  );
+
+  const currentSeason = Math.max(
+    1,
+    Number(currentState.season || 1)
+  );
+
+  const nextEpisode = currentEpisode > 0
+    ? currentEpisode + 1
+    : 1;
+
+  const item = {
+    tmdbId: Number(currentState.tmdbId),
+    type: "tv",
+    title:
+      currentState.baseTitle ||
+      stripEpisodeSuffix(currentState.title),
+    originalTitle: String(currentState.originalTitle || ""),
+    year: String(currentState.year || ""),
+    typeLabel: currentState.typeLabel || "Série",
+    poster: String(currentState.poster || ""),
+    overview: String(currentState.overview || "")
+  };
+
+  return updateOverlay(
+    item,
+    `EP${nextEpisode} - T${currentSeason}`,
+    updatedBy
+  );
+}
+
 function parseTitleAndYear(raw) {
   const value = String(raw || "").trim();
   if (!value) return null;
@@ -588,6 +651,41 @@ async function applyChatCommand(type, parsed, username) {
 
 function handleChatMessage(username, message) {
   lastChatAt = new Date().toISOString();
+
+  const normalizedMessage = String(message || "").trim().toLocaleLowerCase("pt-BR");
+
+  if (normalizedMessage === "!d") {
+    try {
+      const result = advanceEpisode(username || "chat");
+
+      lastCommand = {
+        command: "!d",
+        result: result.title,
+        user: username || "chat",
+        at: new Date().toISOString()
+      };
+
+      lastError = null;
+    } catch (error) {
+      lastError = error.message;
+      console.error("[comando !d]", error.message);
+    }
+
+    return;
+  }
+
+  if (normalizedMessage === "!t") {
+    clearOverlay(username || "chat");
+
+    lastCommand = {
+      command: "!t",
+      result: "Overlay removida",
+      user: username || "chat",
+      at: new Date().toISOString()
+    };
+
+    return;
+  }
 
   let argument = commandArgument(message, "!tf");
   if (argument !== null) {
@@ -816,6 +914,23 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === "DELETE" && url.pathname === "/api/overlay") {
+    clearOverlay("painel adm");
+
+    lastCommand = {
+      command: "PAINEL",
+      result: "Overlay removida",
+      user: "painel adm",
+      at: new Date().toISOString()
+    };
+
+    sendJson(response, 200, {
+      ok: true,
+      state: null
+    });
+    return;
+  }
+
   sendJson(response, 404, { ok: false, error: "Rota da API não encontrada" });
 }
 
@@ -859,7 +974,23 @@ function runSelfTest() {
     throw new Error("Falha ao guardar episódio e temporada no estado");
   }
 
-  console.log("[teste] Painel, overlay, episódios automáticos e capas validados");
+  const advancedState = advanceEpisode("autoteste");
+
+  if (
+    advancedState.title !== "Elite EP2 - T2" ||
+    advancedState.episode !== 2 ||
+    advancedState.season !== 2
+  ) {
+    throw new Error("Falha no comando !d");
+  }
+
+  clearOverlay("autoteste");
+
+  if (currentState !== null) {
+    throw new Error("Falha ao excluir o conteúdo da overlay");
+  }
+
+  console.log("[teste] Painel, !d, !t, episódios e exclusão validados");
 }
 
 if (process.argv.includes("--self-test")) {

@@ -47,3 +47,39 @@ Itens antigos salvos sem capa também são atualizados quando o painel abre.
 Ao colocar uma série na overlay, o painel mostra os campos **Episódio** e
 **Temporada**. Digitar um número ou clicar nas setas `▲` e `▼` atualiza a
 overlay imediatamente, sem apertar outro botão.
+
+
+## Excluir o conteúdo da overlay
+
+No painel, clique em **Excluir da overlay**.
+
+No chat da Twitch, use:
+
+```text
+!t
+```
+
+O título, pôster, episódio e temporada são removidos da overlay.
+
+
+## Próximo episódio pelo chat
+
+Use:
+
+```text
+!d
+```
+
+Exemplo:
+
+```text
+Elite EP1 - T2
+```
+
+depois de `!d` vira:
+
+```text
+Elite EP2 - T2
+```
+
+A temporada é mantida. Se a série ainda não tiver episódio, `!d` começa em `EP1 - T1`.
