@@ -6,8 +6,25 @@
 <title>Painel do Overlay</title>
 <style>
 :root{color-scheme:dark;--bg:#09090d;--panel:#13131a;--panel2:#1a1a23;--line:#2b2b38;--text:#f4f4f7;--muted:#a4a4b2;--accent:#a855f7;--accent2:#7c3aed;--danger:#ef4444;--ok:#22c55e}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#1b1029 0,#09090d 42%);color:var(--text);font-family:Inter,Segoe UI,Arial,sans-serif;min-height:100vh}.wrap{width:min(1180px,calc(100% - 28px));margin:0 auto;padding:26px 0 60px}.top{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:22px}.brand h1{margin:0;font-size:clamp(24px,4vw,38px)}.brand p{margin:7px 0 0;color:var(--muted)}.status{padding:9px 13px;border:1px solid var(--line);background:#111118;border-radius:999px;color:var(--muted);font-size:13px}.status.ok{border-color:#245f38;color:#8ff0aa}.panel{background:rgba(19,19,26,.96);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.34);margin-bottom:18px}.panel h2{margin:0 0 15px;font-size:18px}.current{display:flex;align-items:center;gap:15px;min-height:86px}.current img{width:58px;height:82px;object-fit:cover;border-radius:9px;background:#23232d}.current .title{font-size:20px;font-weight:800}.current .meta{color:var(--muted);margin-top:5px}.grid-form{display:grid;grid-template-columns:150px 1fr 120px auto;gap:10px}.field{background:#0e0e14;border:1px solid var(--line);border-radius:11px;padding:12px 13px;color:var(--text);font:inherit;outline:none}.field:focus{border-color:var(--accent)}button{border:0;border-radius:11px;padding:12px 15px;font:inherit;font-weight:800;cursor:pointer}.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:white}.secondary{background:#262633;color:var(--text)}.danger{background:#3b171c;color:#ffb4bd}.small{padding:9px 11px;font-size:13px}.results,.saved{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:14px}.card{display:flex;gap:12px;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:11px;min-width:0}.poster-frame{position:relative;width:72px;height:105px;flex:0 0 auto;border-radius:8px;overflow:hidden;background:#252530}.poster-frame img{width:100%;height:100%;object-fit:cover;display:block}.poster-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:8px;text-align:center;background:linear-gradient(145deg,#2a1740,#111118);color:#fff;font-size:11px;font-weight:800;line-height:1.15}.current .poster-frame{width:58px;height:82px;border-radius:9px}.current .poster-frame img{width:100%;height:100%;object-fit:cover;display:block}.card-body{min-width:0;display:flex;flex-direction:column;flex:1}.card-title{font-weight:850;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-meta{color:var(--muted);font-size:13px;margin-top:4px}.card-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:auto;padding-top:9px}.empty{color:var(--muted);padding:18px 0}.notice{position:fixed;right:18px;bottom:18px;max-width:360px;background:#171721;border:1px solid var(--line);border-radius:13px;padding:13px 15px;box-shadow:0 12px 40px rgba(0,0,0,.5);opacity:0;transform:translateY(10px);pointer-events:none;transition:.2s}.notice.show{opacity:1;transform:none}.notice.error{border-color:#6f2630;color:#ffb4bd}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.grow{flex:1;min-width:230px}.password{max-width:240px}.hint{color:var(--muted);font-size:13px;margin-top:10px}.spinner{display:none;margin-left:8px}.busy .spinner{display:inline}.section-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.count{color:var(--muted);font-size:13px}
-@media(max-width:760px){.top{align-items:flex-start;flex-direction:column}.grid-form{grid-template-columns:1fr 1fr}.grid-form .query{grid-column:1/-1}.grid-form .search-btn{grid-column:1/-1}.row .password{max-width:none;flex:1}.results,.saved{grid-template-columns:1fr}}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#1b1029 0,#09090d 42%);color:var(--text);font-family:Inter,Segoe UI,Arial,sans-serif;min-height:100vh}.wrap{width:min(1180px,calc(100% - 28px));margin:0 auto;padding:26px 0 60px}.top{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:22px}.brand h1{margin:0;font-size:clamp(24px,4vw,38px)}.brand p{margin:7px 0 0;color:var(--muted)}.status{padding:9px 13px;border:1px solid var(--line);background:#111118;border-radius:999px;color:var(--muted);font-size:13px}.status.ok{border-color:#245f38;color:#8ff0aa}.panel{background:rgba(19,19,26,.96);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.34);margin-bottom:18px}.panel h2{margin:0 0 15px;font-size:18px}.current{display:flex;align-items:center;gap:15px;min-height:86px}.current img{width:58px;height:82px;object-fit:cover;border-radius:9px;background:#23232d}.current .title{font-size:20px;font-weight:800}.current .meta{color:var(--muted);margin-top:5px}.grid-form{display:grid;grid-template-columns:150px 1fr 120px auto;gap:10px}.field{background:#0e0e14;border:1px solid var(--line);border-radius:11px;padding:12px 13px;color:var(--text);font:inherit;outline:none}.field:focus{border-color:var(--accent)}button{border:0;border-radius:11px;padding:12px 15px;font:inherit;font-weight:800;cursor:pointer}.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:white}.secondary{background:#262633;color:var(--text)}.danger{background:#3b171c;color:#ffb4bd}.small{padding:9px 11px;font-size:13px}.results,.saved{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:14px}.card{display:flex;gap:12px;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:11px;min-width:0}.poster-frame{position:relative;width:72px;height:105px;flex:0 0 auto;border-radius:8px;overflow:hidden;background:#252530}.poster-frame img{width:100%;height:100%;object-fit:cover;display:block}.poster-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:8px;text-align:center;background:linear-gradient(145deg,#2a1740,#111118);color:#fff;font-size:11px;font-weight:800;line-height:1.15}.current .poster-frame{width:58px;height:82px;border-radius:9px}.current .poster-frame img{width:100%;height:100%;object-fit:cover;display:block}.card-body{min-width:0;display:flex;flex-direction:column;flex:1}.card-title{font-weight:850;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-meta{color:var(--muted);font-size:13px;margin-top:4px}.card-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:auto;padding-top:9px}.empty{color:var(--muted);padding:18px 0}.notice{position:fixed;right:18px;bottom:18px;max-width:360px;background:#171721;border:1px solid var(--line);border-radius:13px;padding:13px 15px;box-shadow:0 12px 40px rgba(0,0,0,.5);opacity:0;transform:translateY(10px);pointer-events:none;transition:.2s}.notice.show{opacity:1;transform:none}.notice.error{border-color:#6f2630;color:#ffb4bd}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.grow{flex:1;min-width:230px}.password{max-width:240px}.hint{color:var(--muted);font-size:13px;margin-top:10px}.spinner{display:none;margin-left:8px}.busy .spinner{display:inline}.section-head{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.count{color:var(--muted);font-size:13px}
+.episode-controls{display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+.episode-controls.show{display:block}
+.episode-title{font-size:14px;font-weight:850;margin-bottom:10px}
+.episode-row{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.episode-group{display:flex;flex-direction:column;gap:6px}
+.episode-group>span{color:var(--muted);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.stepper{display:grid;grid-template-columns:46px 92px 46px;gap:6px;align-items:stretch}
+.stepper input{width:92px;text-align:center;font-size:20px;font-weight:900;padding:10px 6px}
+.stepper input::-webkit-inner-spin-button,.stepper input::-webkit-outer-spin-button{opacity:1}
+.step-button{display:flex;align-items:center;justify-content:center;min-width:46px;padding:0;background:#262633;color:#fff;font-size:18px;line-height:1}
+.step-button:hover{background:#353548}
+.episode-auto-status{min-height:18px;margin-left:auto;color:var(--muted);font-size:13px;padding-bottom:11px}
+.episode-auto-status.sending{color:#d8b4fe}
+.episode-auto-status.ok{color:#8ff0aa}
+.episode-auto-status.error{color:#ffb4bd}
+
+@media(max-width:760px){.episode-row{align-items:stretch}.episode-auto-status{width:100%;margin-left:0;padding-bottom:0}.stepper{grid-template-columns:44px minmax(82px,110px) 44px}.top{align-items:flex-start;flex-direction:column}.grid-form{grid-template-columns:1fr 1fr}.grid-form .query{grid-column:1/-1}.grid-form .search-btn{grid-column:1/-1}.row .password{max-width:none;flex:1}.results,.saved{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -20,6 +37,31 @@
   <section class="panel">
     <div class="section-head"><h2>Agora na overlay</h2><button id="refreshState" class="secondary small">Atualizar estado</button></div>
     <div id="current" class="current"><div class="empty">Nenhum título enviado ainda.</div></div>
+
+    <div id="episodeControls" class="episode-controls">
+      <div class="episode-title">Episódio e temporada — atualiza automaticamente</div>
+      <div class="episode-row">
+        <label class="episode-group">
+          <span>Episódio</span>
+          <div class="stepper">
+            <button type="button" class="step-button" data-step-target="episode" data-step="-1" title="Episódio anterior">▼</button>
+            <input id="episode" class="field" type="number" min="1" step="1" value="1" inputmode="numeric">
+            <button type="button" class="step-button" data-step-target="episode" data-step="1" title="Próximo episódio">▲</button>
+          </div>
+        </label>
+
+        <label class="episode-group">
+          <span>Temporada</span>
+          <div class="stepper">
+            <button type="button" class="step-button" data-step-target="season" data-step="-1" title="Temporada anterior">▼</button>
+            <input id="season" class="field" type="number" min="1" step="1" value="1" inputmode="numeric">
+            <button type="button" class="step-button" data-step-target="season" data-step="1" title="Próxima temporada">▲</button>
+          </div>
+        </label>
+
+        <div id="episodeAutoStatus" class="episode-auto-status">Digite ou use as setas. A overlay muda sozinha.</div>
+      </div>
+    </div>
   </section>
 
   <section class="panel">
@@ -31,10 +73,9 @@
       <button class="primary search-btn" type="submit">Pesquisar <span class="spinner">…</span></button>
     </form>
     <div class="row" style="margin-top:10px">
-      <input id="suffix" class="field grow" placeholder="Complemento opcional, exemplo: EP1 - T2">
       <input id="adminPassword" class="field password" type="password" placeholder="Senha do painel (se configurada)">
     </div>
-    <div class="hint">“Atualizar overlay” troca o card imediatamente. “Salvar” mantém o título na lista abaixo.</div>
+    <div class="hint">“Atualizar overlay” troca o título. Para séries, episódio e temporada ficam nos controles automáticos acima.</div>
     <div id="results" class="results"><div class="empty">Faça uma pesquisa.</div></div>
   </section>
 
@@ -55,7 +96,16 @@
   const currentEl = $("#current");
   const noticeEl = $("#notice");
   const passwordEl = $("#adminPassword");
+  const episodeControlsEl = $("#episodeControls");
+  const episodeEl = $("#episode");
+  const seasonEl = $("#season");
+  const episodeAutoStatusEl = $("#episodeAutoStatus");
+
   let saved = loadLocal();
+  let currentOverlayItem = null;
+  let episodeTimer = null;
+  let episodeRequestSequence = 0;
+  let syncingEpisodeControls = false;
 
   passwordEl.value = localStorage.getItem(PASSWORD_KEY) || "";
   passwordEl.addEventListener("input", () => localStorage.setItem(PASSWORD_KEY, passwordEl.value));
@@ -72,11 +122,150 @@
   function cardHtml(item,savedMode=false){return `<article class="card">${posterHtml(item)}<div class="card-body"><div class="card-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div><div class="card-meta">${escapeHtml(item.typeLabel|| (item.type==="tv"?"Série":"Filme"))}${item.year?" • "+escapeHtml(item.year):""}</div><div class="card-actions"><button class="primary small" data-action="update" data-key="${escapeHtml(keyOf(item))}">Atualizar overlay</button>${savedMode?`<button class="danger small" data-action="remove" data-key="${escapeHtml(keyOf(item))}">Excluir</button>`:`<button class="secondary small" data-action="save" data-key="${escapeHtml(keyOf(item))}">Salvar</button>`}</div></div></article>`}
   function renderResults(items){window.__searchResults=items;resultsEl.innerHTML=items.length?items.map(item=>cardHtml(item,false)).join(""):`<div class="empty">Nenhum resultado encontrado.</div>`}
   function renderSaved(){window.__savedItems=saved;savedEl.innerHTML=saved.length?saved.map(item=>cardHtml(item,true)).join(""):`<div class="empty">Nenhum título salvo.</div>`;$("#savedCount").textContent=saved.length+" salvo"+(saved.length===1?"":"s")}
-  function renderCurrent(item){if(!item){currentEl.innerHTML=`<div class="empty">Nenhum título enviado ainda.</div>`;return}currentEl.innerHTML=`${posterHtml(item)}<div><div class="title">${escapeHtml(item.displayTitle||item.title)}</div><div class="meta">${escapeHtml(item.typeLabel||"")}${item.year?" • "+escapeHtml(item.year):""}</div></div>`}
+  function stripEpisodeSuffix(value){
+    return String(value||"")
+      .replace(/\s+(?:EP|E)\s*0*\d+\s*[-–—]?\s*(?:T|TEMP|TEMPORADA)\s*0*\d+\s*$/i,"")
+      .trim()
+  }
+
+  function itemFromState(item){
+    if(!item)return null;
+    return {
+      ...item,
+      title:item.baseTitle||stripEpisodeSuffix(item.title),
+      displayTitle:undefined
+    }
+  }
+
+  function episodeValuesFromState(item){
+    if(!item)return null;
+
+    if(Number(item.episode)>0&&Number(item.season)>0){
+      return {
+        episode:Number(item.episode),
+        season:Number(item.season)
+      }
+    }
+
+    const text=String(item.displayTitle||item.title||"");
+    const match=text.match(/(?:EP|E)\s*0*(\d+)\s*[-–—]?\s*(?:T|TEMP|TEMPORADA)\s*0*(\d+)\s*$/i);
+
+    return match
+      ? {episode:Number(match[1]),season:Number(match[2])}
+      : null
+  }
+
+  function syncEpisodeControls(item){
+    currentOverlayItem=itemFromState(item);
+    const isSeries=currentOverlayItem&&currentOverlayItem.type==="tv";
+
+    episodeControlsEl.classList.toggle("show",Boolean(isSeries));
+
+    if(!isSeries){
+      episodeAutoStatusEl.textContent="Selecione uma série para usar episódio e temporada.";
+      episodeAutoStatusEl.className="episode-auto-status";
+      return
+    }
+
+    const values=episodeValuesFromState(item);
+
+    syncingEpisodeControls=true;
+    episodeEl.value=String(values?.episode||1);
+    seasonEl.value=String(values?.season||1);
+    syncingEpisodeControls=false;
+
+    episodeAutoStatusEl.textContent="Digite ou use as setas. A overlay muda sozinha.";
+    episodeAutoStatusEl.className="episode-auto-status"
+  }
+
+  function renderCurrent(item){
+    if(!item){
+      currentEl.innerHTML=`<div class="empty">Nenhum título enviado ainda.</div>`;
+      syncEpisodeControls(null);
+      return
+    }
+
+    currentEl.innerHTML=`${posterHtml(item)}<div><div class="title">${escapeHtml(item.displayTitle||item.title)}</div><div class="meta">${escapeHtml(item.typeLabel||"")}${item.year?" • "+escapeHtml(item.year):""}</div></div>`;
+    syncEpisodeControls(item)
+  }
+
+  function normalizePositiveInteger(input){
+    const number=Math.max(1,Math.floor(Number(input.value)||1));
+    input.value=String(number);
+    return number
+  }
+
+  async function updateEpisodeAutomatically(){
+    if(syncingEpisodeControls||!currentOverlayItem||currentOverlayItem.type!=="tv")return;
+
+    const episode=normalizePositiveInteger(episodeEl);
+    const season=normalizePositiveInteger(seasonEl);
+    const requestSequence=++episodeRequestSequence;
+
+    episodeAutoStatusEl.textContent="Atualizando overlay…";
+    episodeAutoStatusEl.className="episode-auto-status sending";
+
+    try{
+      const payload=await api("/api/overlay",{
+        method:"POST",
+        body:JSON.stringify({
+          item:currentOverlayItem,
+          suffix:`EP${episode} - T${season}`
+        })
+      });
+
+      if(requestSequence!==episodeRequestSequence)return;
+
+      renderCurrent(payload.state);
+      episodeAutoStatusEl.textContent=`Atualizado: EP${episode} - T${season}`;
+      episodeAutoStatusEl.className="episode-auto-status ok";
+      notify(`Overlay atualizada: EP${episode} - T${season}`)
+    }catch(error){
+      if(requestSequence!==episodeRequestSequence)return;
+
+      episodeAutoStatusEl.textContent=error.message;
+      episodeAutoStatusEl.className="episode-auto-status error";
+      notify(error.message,true)
+    }
+  }
+
+  function scheduleEpisodeUpdate(immediate=false){
+    if(syncingEpisodeControls)return;
+
+    clearTimeout(episodeTimer);
+
+    if(immediate){
+      updateEpisodeAutomatically();
+      return
+    }
+
+    episodeTimer=setTimeout(updateEpisodeAutomatically,120)
+  }
+
+  episodeEl.addEventListener("input",()=>scheduleEpisodeUpdate(false));
+  seasonEl.addEventListener("input",()=>scheduleEpisodeUpdate(false));
+  episodeEl.addEventListener("change",()=>scheduleEpisodeUpdate(true));
+  seasonEl.addEventListener("change",()=>scheduleEpisodeUpdate(true));
+
+  episodeControlsEl.addEventListener("click",event=>{
+    const button=event.target.closest("button[data-step-target]");
+    if(!button)return;
+
+    const input=button.dataset.stepTarget==="season"?seasonEl:episodeEl;
+
+    if(Number(button.dataset.step)>0){
+      input.stepUp()
+    }else{
+      input.stepDown()
+    }
+
+    scheduleEpisodeUpdate(true)
+  });
+
   async function refreshState(){try{const response=await fetch("/state?t="+Date.now(),{cache:"no-store"});renderCurrent(response.ok?await response.json():null);$("#connectionStatus").textContent="Overlay conectada";$("#connectionStatus").className="status ok"}catch{$("#connectionStatus").textContent="Sem conexão";$("#connectionStatus").className="status"}}
   async function loadServerSaved(){try{const payload=await api("/api/saved");mergeSaved(payload.items||[])}catch(error){if(error.message.includes("Senha"))notify(error.message,true)}}
   $("#searchForm").addEventListener("submit",async event=>{event.preventDefault();const form=event.currentTarget;form.classList.add("busy");try{const params=new URLSearchParams({type:$("#type").value,q:$("#query").value.trim(),year:$("#year").value.trim()});const payload=await api("/api/search?"+params);renderResults(payload.results||[])}catch(error){notify(error.message,true)}finally{form.classList.remove("busy")}});
-  async function updateItem(item){try{const payload=await api("/api/overlay",{method:"POST",body:JSON.stringify({item,suffix:$("#suffix").value.trim()})});renderCurrent(payload.state);notify("Overlay atualizada: "+payload.state.title)}catch(error){notify(error.message,true)}}
+  async function updateItem(item){try{const payload=await api("/api/overlay",{method:"POST",body:JSON.stringify({item,suffix:""})});renderCurrent(payload.state);notify("Overlay atualizada: "+payload.state.title)}catch(error){notify(error.message,true)}}
   async function addItem(item){saved=[item,...saved.filter(entry=>keyOf(entry)!==keyOf(item))];saveLocal();renderSaved();try{await api("/api/saved",{method:"POST",body:JSON.stringify({item})});notify("Título salvo") }catch(error){notify("Salvo neste navegador. "+error.message,true)}}
   async function removeItem(item){saved=saved.filter(entry=>keyOf(entry)!==keyOf(item));saveLocal();renderSaved();try{await api("/api/saved/"+encodeURIComponent(item.type)+"/"+encodeURIComponent(item.tmdbId),{method:"DELETE"});notify("Título removido")}catch(error){notify("Removido deste navegador. "+error.message,true)}}
   async function handleCards(event,source){const button=event.target.closest("button[data-action]");if(!button)return;const items=source==="saved"?window.__savedItems:window.__searchResults;const item=(items||[]).find(entry=>keyOf(entry)===button.dataset.key);if(!item)return;button.disabled=true;try{if(button.dataset.action==="update")await updateItem(item);if(button.dataset.action==="save")await addItem(item);if(button.dataset.action==="remove")await removeItem(item)}finally{button.disabled=false}}

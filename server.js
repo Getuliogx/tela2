@@ -491,6 +491,9 @@ function updateOverlay(item, suffix = "", updatedBy = "painel") {
 
   const extra = cleanSuffix(suffix);
   const displayTitle = extra ? `${item.title} ${extra}` : item.title;
+  const episodeMatch = extra.match(
+    /^(?:EP|E)\s*0*(\d+)\s*[-–—]?\s*(?:T|TEMP|TEMPORADA)\s*0*(\d+)$/i
+  );
 
   currentState = {
     revision: Date.now(),
@@ -499,6 +502,9 @@ function updateOverlay(item, suffix = "", updatedBy = "painel") {
     baseTitle: item.title,
     title: displayTitle,
     displayTitle,
+    episode: episodeMatch ? Number(episodeMatch[1]) : null,
+    season: episodeMatch ? Number(episodeMatch[2]) : null,
+    suffix: extra,
     year: String(item.year || ""),
     typeLabel: item.typeLabel || typeLabel(item.type),
     poster: String(item.poster || ""),
@@ -849,7 +855,11 @@ function runSelfTest() {
     throw new Error("Falha ao criar capa substituta");
   }
 
-  console.log("[teste] Painel, overlay, episódios e capas validados");
+  if (testState.episode !== 1 || testState.season !== 2) {
+    throw new Error("Falha ao guardar episódio e temporada no estado");
+  }
+
+  console.log("[teste] Painel, overlay, episódios automáticos e capas validados");
 }
 
 if (process.argv.includes("--self-test")) {

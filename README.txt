@@ -23,3 +23,9 @@ CAPAS:
 - usa backdrop quando nao existe poster;
 - cria capa com o titulo quando nao existe nenhuma imagem;
 - corrige itens antigos salvos sem capa.
+
+
+EPISODIO E TEMPORADA:
+- aparecem automaticamente quando a overlay atual e uma serie;
+- digitar atualiza sozinho;
+- clicar nas setas para cima ou para baixo atualiza sozinho.

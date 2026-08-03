@@ -40,3 +40,10 @@ Quando o resultado não traz `poster_path`, o servidor procura outra imagem no e
 3. capa substituta com o título.
 
 Itens antigos salvos sem capa também são atualizados quando o painel abre.
+
+
+## Episódio e temporada automáticos
+
+Ao colocar uma série na overlay, o painel mostra os campos **Episódio** e
+**Temporada**. Digitar um número ou clicar nas setas `▲` e `▼` atualiza a
+overlay imediatamente, sem apertar outro botão.
