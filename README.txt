@@ -73,3 +73,10 @@ PATROCINIO EMBAIXO DE CADA TITULO:
 - campo fica dentro de cada filme/serie salvo;
 - o texto digitado nao e mais apagado pelo refresh;
 - cada titulo guarda seu proprio patrocinador.
+
+
+CORRECAO DO NICK:
+- digite o nick no card salvo;
+- clique em Atualizar overlay;
+- o nick e salvo e enviado junto;
+- Enter no campo tambem atualiza.

@@ -229,9 +229,10 @@ function savedMedia(item) {
 
 function sponsorForMedia(item) {
   const saved = savedMedia(item);
+
   return cleanSponsorName(
-    saved?.sponsor ||
     item?.sponsor ||
+    saved?.sponsor ||
     ""
   );
 }
@@ -1672,7 +1673,18 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (request.method === "GET" && url.pathname === "/state") {
-    sendJson(response, 200, currentState);
+    if (!currentState) {
+      sendJson(response, 200, null);
+      return;
+    }
+
+    const sponsor = sponsorForMedia(currentState);
+
+    sendJson(response, 200, {
+      ...currentState,
+      sponsor,
+      sponsorText: sponsor ? `Patrocionio: ${sponsor}` : ""
+    });
     return;
   }
 

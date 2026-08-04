@@ -166,3 +166,16 @@ overlay, aparece:
 ```text
 Patrocionio: Papiluni
 ```
+
+
+## Correção do nick na overlay
+
+Agora basta digitar o nick no card salvo e clicar em **Atualizar overlay**.
+O painel salva o patrocinador primeiro e envia o título já com:
+
+```text
+Patrocionio: Papiluni
+```
+
+Não é necessário clicar antes em **Salvar patrocínio**. Pressionar Enter no
+campo também atualiza a overlay.

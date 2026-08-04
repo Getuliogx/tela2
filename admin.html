@@ -150,7 +150,7 @@
             <button class="secondary small" data-action="save-item-sponsor" data-key="${escapeHtml(keyOf(item))}">Salvar patrocínio</button>
             <button class="danger small" data-action="clear-item-sponsor" data-key="${escapeHtml(keyOf(item))}" ${sponsor?"":"disabled"}>Remover</button>
           </div>
-          <div class="card-sponsor-current${sponsor?" active":""}">${sponsor?`Patrocionio: ${escapeHtml(sponsor)}`:"Sem patrocinador"}</div>
+          <div class="card-sponsor-current${sponsor?" active":""}">${sponsor?`Patrocionio: ${escapeHtml(sponsor)}`:"Digite o nick e clique em Atualizar overlay"}</div>
         </div>`
       : "";
 
@@ -316,7 +316,57 @@
   async function refreshState(){try{const response=await fetch("/state?t="+Date.now(),{cache:"no-store"});const state=response.ok?await response.json():null;renderCurrent(state);$("#connectionStatus").textContent="Overlay conectada";$("#connectionStatus").className="status ok"}catch{$("#connectionStatus").textContent="Sem conexão";$("#connectionStatus").className="status"}}
   async function loadServerSaved(){try{const payload=await api("/api/saved");mergeSaved(payload.items||[])}catch(error){if(error.message.includes("Senha"))notify(error.message,true)}}
   $("#searchForm").addEventListener("submit",async event=>{event.preventDefault();const form=event.currentTarget;form.classList.add("busy");try{const params=new URLSearchParams({type:$("#type").value,q:$("#query").value.trim(),year:$("#year").value.trim()});const payload=await api("/api/search?"+params);renderResults(payload.results||[])}catch(error){notify(error.message,true)}finally{form.classList.remove("busy")}});
-  async function updateItem(item){try{const payload=await api("/api/overlay",{method:"POST",body:JSON.stringify({item,suffix:""})});renderCurrent(payload.state);notify("Overlay atualizada: "+payload.state.title)}catch(error){notify(error.message,true)}}
+  async function updateItem(item,card=null,source="results"){
+    try{
+      let finalItem=item;
+
+      if(source==="saved"&&card){
+        const input=card.querySelector("[data-sponsor-input]");
+        const typedSponsor=String(input?.value||"").trim();
+        const currentSponsor=String(item.sponsor||"").trim();
+
+        /*
+          O campo em branco não apaga o patrocinador sozinho.
+          Para apagar, usa o botão "Remover".
+        */
+        if(typedSponsor&&typedSponsor!==currentSponsor){
+          const sponsorPayload=await api(
+            `/api/saved/${encodeURIComponent(item.type)}/${encodeURIComponent(item.tmdbId)}/sponsor`,
+            {
+              method:"POST",
+              body:JSON.stringify({name:typedSponsor})
+            }
+          );
+
+          finalItem=sponsorPayload.item;
+          saved=saved.map(entry=>keyOf(entry)===keyOf(finalItem)?finalItem:entry);
+          saveLocal()
+        }
+      }
+
+      const payload=await api("/api/overlay",{
+        method:"POST",
+        body:JSON.stringify({
+          item:finalItem,
+          suffix:""
+        })
+      });
+
+      renderCurrent(payload.state);
+
+      if(source==="saved"){
+        renderSaved()
+      }
+
+      const sponsorText=payload.state?.sponsorText
+        ? ` • ${payload.state.sponsorText}`
+        : "";
+
+      notify("Overlay atualizada: "+payload.state.title+sponsorText)
+    }catch(error){
+      notify(error.message,true)
+    }
+  }
   async function addItem(item){saved=[item,...saved.filter(entry=>keyOf(entry)!==keyOf(item))];saveLocal();renderSaved();try{await api("/api/saved",{method:"POST",body:JSON.stringify({item})});notify("Título salvo") }catch(error){notify("Salvo neste navegador. "+error.message,true)}}
   async function removeItem(item){saved=saved.filter(entry=>keyOf(entry)!==keyOf(item));saveLocal();renderSaved();try{await api("/api/saved/"+encodeURIComponent(item.type)+"/"+encodeURIComponent(item.tmdbId),{method:"DELETE"});notify("Título removido")}catch(error){notify("Removido deste navegador. "+error.message,true)}}
   async function saveItemSponsor(item,card,clear=false){
@@ -364,7 +414,7 @@
     button.disabled=true;
 
     try{
-      if(button.dataset.action==="update")await updateItem(item);
+      if(button.dataset.action==="update")await updateItem(item,card,source);
       if(button.dataset.action==="save")await addItem(item);
       if(button.dataset.action==="remove")await removeItem(item);
       if(button.dataset.action==="save-item-sponsor")await saveItemSponsor(item,card,false);
@@ -375,6 +425,19 @@
   }
   resultsEl.addEventListener("click",event=>handleCards(event,"results"));
   savedEl.addEventListener("click",event=>handleCards(event,"saved"));
+
+  savedEl.addEventListener("keydown",event=>{
+    const input=event.target.closest("[data-sponsor-input]");
+
+    if(!input||event.key!=="Enter")return;
+
+    event.preventDefault();
+
+    const card=input.closest(".card");
+    const button=card?.querySelector('[data-action="update"]');
+
+    button?.click()
+  });
   $("#refreshState").addEventListener("click",refreshState);
 
   clearOverlayButton.addEventListener("click",async()=>{
