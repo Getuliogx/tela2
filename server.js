@@ -242,12 +242,56 @@ function sponsorTextForMedia(item) {
   return sponsor ? `Patrocionio: ${sponsor}` : "";
 }
 
-function setSavedMediaSponsor(type, tmdbId, name, updatedBy = "painel adm") {
+async function setSavedMediaSponsor(
+  type,
+  tmdbId,
+  name,
+  fallbackItem = null,
+  updatedBy = "painel adm"
+) {
   const key = `${type}:${Number(tmdbId)}`;
-  const index = savedItems.findIndex(entry => mediaKey(entry) === key);
+  let index = savedItems.findIndex(
+    entry => mediaKey(entry) === key
+  );
 
+  /*
+    O navegador pode manter o card salvo mesmo quando o Render perde
+    saved.json depois de um deploy. Nesse caso, recria o título usando
+    o item enviado pelo próprio painel, em vez de retornar erro.
+  */
   if (index < 0) {
-    throw new Error("Título salvo não encontrado");
+    let candidate = fallbackItem;
+
+    if (
+      (!validMediaItem(candidate) || mediaKey(candidate) !== key) &&
+      currentState &&
+      mediaKey(currentState) === key
+    ) {
+      candidate = currentState;
+    }
+
+    if (validMediaItem(candidate) && mediaKey(candidate) === key) {
+      candidate = await hydrateMediaItem(candidate);
+
+      savedItems.unshift({
+        ...candidate,
+        sponsor: "",
+        savedAt: new Date().toISOString(),
+        sponsorUpdatedAt: ""
+      });
+
+      savedItems = savedItems.slice(0, 200);
+      index = 0;
+    }
+  }
+
+  /*
+    Compatibilidade com painéis antigos: nunca retorna
+    "Título salvo não encontrado". Quando faltarem os dados do título,
+    responde sem derrubar a overlay.
+  */
+  if (index < 0) {
+    return null;
   }
 
   const sponsor = cleanSponsorName(name);
@@ -1256,16 +1300,17 @@ async function handleApi(request, response, url) {
         ? await readJson(request)
         : {};
 
-      const item = setSavedMediaSponsor(
+      const item = await setSavedMediaSponsor(
         type,
         tmdbId,
         request.method === "POST" ? body.name : "",
+        body.item || null,
         "painel adm"
       );
 
       sendJson(response, 200, {
         ok: true,
-        item: decorateWithSeriesProgress(item),
+        item: item ? decorateWithSeriesProgress(item) : null,
         items: savedItems.map(decorateWithSeriesProgress),
         state: currentState
       });

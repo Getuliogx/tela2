@@ -80,3 +80,10 @@ CORRECAO DO NICK:
 - clique em Atualizar overlay;
 - o nick e salvo e enviado junto;
 - Enter no campo tambem atualiza.
+
+
+CORRECAO TITULO SALVO NAO ENCONTRADO:
+- o titulo e recriado automaticamente no servidor;
+- Salvar patrocinio funciona em cards antigos do navegador;
+- Atualizar overlay salva o nick junto;
+- nao precisa excluir nem salvar o filme novamente.

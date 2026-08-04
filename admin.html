@@ -150,7 +150,7 @@
             <button class="secondary small" data-action="save-item-sponsor" data-key="${escapeHtml(keyOf(item))}">Salvar patrocínio</button>
             <button class="danger small" data-action="clear-item-sponsor" data-key="${escapeHtml(keyOf(item))}" ${sponsor?"":"disabled"}>Remover</button>
           </div>
-          <div class="card-sponsor-current${sponsor?" active":""}">${sponsor?`Patrocionio: ${escapeHtml(sponsor)}`:"Digite o nick e clique em Atualizar overlay"}</div>
+          <div class="card-sponsor-current${sponsor?" active":""}">${sponsor?`Patrocionio: ${escapeHtml(sponsor)}`:"Digite o nick e clique em Salvar ou Atualizar overlay"}</div>
         </div>`
       : "";
 
@@ -318,30 +318,46 @@
   $("#searchForm").addEventListener("submit",async event=>{event.preventDefault();const form=event.currentTarget;form.classList.add("busy");try{const params=new URLSearchParams({type:$("#type").value,q:$("#query").value.trim(),year:$("#year").value.trim()});const payload=await api("/api/search?"+params);renderResults(payload.results||[])}catch(error){notify(error.message,true)}finally{form.classList.remove("busy")}});
   async function updateItem(item,card=null,source="results"){
     try{
-      let finalItem=item;
+      let finalItem={...item};
 
       if(source==="saved"&&card){
         const input=card.querySelector("[data-sponsor-input]");
         const typedSponsor=String(input?.value||"").trim();
         const currentSponsor=String(item.sponsor||"").trim();
+        const desiredSponsor=typedSponsor||currentSponsor;
+
+        finalItem={
+          ...item,
+          sponsor:desiredSponsor
+        };
 
         /*
-          O campo em branco não apaga o patrocinador sozinho.
-          Para apagar, usa o botão "Remover".
+          /api/saved cria ou atualiza o título. Portanto funciona mesmo
+          quando o card só existe no navegador e o Render perdeu saved.json.
         */
-        if(typedSponsor&&typedSponsor!==currentSponsor){
-          const sponsorPayload=await api(
-            `/api/saved/${encodeURIComponent(item.type)}/${encodeURIComponent(item.tmdbId)}/sponsor`,
-            {
-              method:"POST",
-              body:JSON.stringify({name:typedSponsor})
-            }
-          );
+        const savedPayload=await api("/api/saved",{
+          method:"POST",
+          body:JSON.stringify({
+            item:finalItem,
+            sponsor:desiredSponsor
+          })
+        });
 
-          finalItem=sponsorPayload.item;
-          saved=saved.map(entry=>keyOf(entry)===keyOf(finalItem)?finalItem:entry);
-          saveLocal()
+        const serverItem=(savedPayload.items||[]).find(
+          entry=>keyOf(entry)===keyOf(finalItem)
+        );
+
+        if(serverItem){
+          finalItem=serverItem
         }
+
+        const map=new Map(
+          saved.map(entry=>[keyOf(entry),entry])
+        );
+
+        map.set(keyOf(finalItem),finalItem);
+        saved=[...map.values()];
+        saveLocal()
       }
 
       const payload=await api("/api/overlay",{
@@ -374,26 +390,57 @@
     const name=clear?"":String(input?.value||"").trim();
 
     if(!clear&&!name){
-      notify("Digite o nick do patrocinador",true);
       input?.focus();
       return
     }
 
-    const method=clear?"DELETE":"POST";
-    const payload=await api(
-      `/api/saved/${encodeURIComponent(item.type)}/${encodeURIComponent(item.tmdbId)}/sponsor`,
-      {
-        method,
-        body:clear?undefined:JSON.stringify({name})
-      }
+    const finalItem={
+      ...item,
+      sponsor:name
+    };
+
+    /*
+      Usa o endpoint de upsert do título. Não depende de o título já
+      existir em saved.json e, por isso, não gera mais o erro anterior.
+    */
+    const payload=await api("/api/saved",{
+      method:"POST",
+      body:JSON.stringify({
+        item:finalItem,
+        sponsor:name
+      })
+    });
+
+    const updated=(payload.items||[]).find(
+      entry=>keyOf(entry)===keyOf(finalItem)
+    )||finalItem;
+
+    const map=new Map(
+      saved.map(entry=>[keyOf(entry),entry])
     );
 
-    const updated=payload.item;
-    saved=saved.map(entry=>keyOf(entry)===keyOf(updated)?updated:entry);
+    map.set(keyOf(updated),updated);
+    saved=[...map.values()];
     saveLocal();
     renderSaved();
 
-    if(payload.state)renderCurrent(payload.state);
+    /*
+      Quando este título já está na overlay, atualiza o nick na hora.
+    */
+    if(
+      currentOverlayItem &&
+      keyOf(currentOverlayItem)===keyOf(updated)
+    ){
+      const overlayPayload=await api("/api/overlay",{
+        method:"POST",
+        body:JSON.stringify({
+          item:updated,
+          suffix:currentOverlayItem.suffix||""
+        })
+      });
+
+      renderCurrent(overlayPayload.state)
+    }
 
     notify(
       clear

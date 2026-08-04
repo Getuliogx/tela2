@@ -179,3 +179,13 @@ Patrocionio: Papiluni
 
 Não é necessário clicar antes em **Salvar patrocínio**. Pressionar Enter no
 campo também atualiza a overlay.
+
+
+## Correção do erro “Título salvo não encontrado”
+
+Os cards podem continuar no navegador depois que um deploy do Render apaga
+`saved.json`. Agora, ao salvar o nick ou atualizar a overlay, o painel envia
+também os dados completos do filme/série e o servidor recria o título
+automaticamente.
+
+Não é mais necessário salvar o título novamente.
