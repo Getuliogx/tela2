@@ -217,6 +217,68 @@ function saveSponsor() {
   });
 }
 
+function mediaKey(item) {
+  if (!item) return "";
+  return `${item.type}:${Number(item.tmdbId)}`;
+}
+
+function savedMedia(item) {
+  const key = mediaKey(item);
+  return savedItems.find(entry => mediaKey(entry) === key) || null;
+}
+
+function sponsorForMedia(item) {
+  const saved = savedMedia(item);
+  return cleanSponsorName(
+    saved?.sponsor ||
+    item?.sponsor ||
+    ""
+  );
+}
+
+function sponsorTextForMedia(item) {
+  const sponsor = sponsorForMedia(item);
+  return sponsor ? `Patrocionio: ${sponsor}` : "";
+}
+
+function setSavedMediaSponsor(type, tmdbId, name, updatedBy = "painel adm") {
+  const key = `${type}:${Number(tmdbId)}`;
+  const index = savedItems.findIndex(entry => mediaKey(entry) === key);
+
+  if (index < 0) {
+    throw new Error("Título salvo não encontrado");
+  }
+
+  const sponsor = cleanSponsorName(name);
+
+  savedItems[index] = {
+    ...savedItems[index],
+    sponsor,
+    sponsorUpdatedAt: new Date().toISOString()
+  };
+
+  saveSavedItems();
+
+  if (
+    currentState &&
+    mediaKey(currentState) === key
+  ) {
+    currentState = {
+      ...currentState,
+      sponsor,
+      sponsorText: sponsor ? `Patrocionio: ${sponsor}` : "",
+      revision: Date.now(),
+      updatedBy,
+      updatedAt: new Date().toISOString()
+    };
+
+    saveState();
+    broadcastState();
+  }
+
+  return savedItems[index];
+}
+
 function setSponsor(name, updatedBy = "painel adm") {
   currentSponsor = cleanSponsorName(name);
   saveSponsor();
@@ -760,8 +822,8 @@ function updateOverlay(item, suffix = "", updatedBy = "painel") {
     typeLabel: item.typeLabel || typeLabel(item.type),
     poster: String(item.poster || ""),
     overview: String(item.overview || ""),
-    sponsor: currentSponsor,
-    sponsorText: sponsorText(),
+    sponsor: sponsorForMedia(item),
+    sponsorText: sponsorTextForMedia(item),
     updatedBy,
     updatedAt: new Date().toISOString()
   };
@@ -1151,8 +1213,23 @@ async function handleApi(request, response, url) {
       const item = await hydrateMediaItem(body.item);
       if (!validMediaItem(item)) throw new Error("Título inválido");
       const key = `${item.type}:${item.tmdbId}`;
+      const existing = savedItems.find(
+        entry => `${entry.type}:${entry.tmdbId}` === key
+      );
+      const sponsor = cleanSponsorName(
+        body.sponsor ??
+        item.sponsor ??
+        existing?.sponsor ??
+        ""
+      );
+
       savedItems = [
-        { ...item, savedAt: new Date().toISOString() },
+        {
+          ...item,
+          sponsor,
+          savedAt: existing?.savedAt || new Date().toISOString(),
+          sponsorUpdatedAt: existing?.sponsorUpdatedAt || ""
+        },
         ...savedItems.filter(entry => `${entry.type}:${entry.tmdbId}` !== key)
       ].slice(0, 200);
       saveSavedItems();
@@ -1162,6 +1239,40 @@ async function handleApi(request, response, url) {
       });
     } catch (error) {
       sendJson(response, 400, { ok: false, error: error.message });
+    }
+    return;
+  }
+
+  if (
+    (request.method === "POST" || request.method === "DELETE") &&
+    /^\/api\/saved\/(movie|tv)\/\d+\/sponsor$/.test(url.pathname)
+  ) {
+    try {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const type = parts[2];
+      const tmdbId = Number(parts[3]);
+      const body = request.method === "POST"
+        ? await readJson(request)
+        : {};
+
+      const item = setSavedMediaSponsor(
+        type,
+        tmdbId,
+        request.method === "POST" ? body.name : "",
+        "painel adm"
+      );
+
+      sendJson(response, 200, {
+        ok: true,
+        item: decorateWithSeriesProgress(item),
+        items: savedItems.map(decorateWithSeriesProgress),
+        state: currentState
+      });
+    } catch (error) {
+      sendJson(response, 400, {
+        ok: false,
+        error: error.message
+      });
     }
     return;
   }

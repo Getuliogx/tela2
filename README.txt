@@ -66,3 +66,10 @@ PATROCINIO NO MESMO SERVIDOR:
 - digite o nick;
 - aparece como Patrocionio: Papiluni;
 - servidor único: https://tela2.onrender.com.
+
+
+PATROCINIO EMBAIXO DE CADA TITULO:
+- removida a caixa grande separada;
+- campo fica dentro de cada filme/serie salvo;
+- o texto digitado nao e mais apagado pelo refresh;
+- cada titulo guarda seu proprio patrocinador.

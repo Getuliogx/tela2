@@ -147,3 +147,22 @@ Patrocionio: Papiluni
 ```
 
 Não é usado nenhum outro servidor.
+
+
+## Patrocínio embaixo de cada filme/série salvo
+
+A caixa grande de patrocínio foi removida.
+
+Cada título salvo agora possui, dentro do próprio card:
+
+- campo para digitar o nick;
+- botão **Salvar patrocínio**;
+- botão **Remover**.
+
+O painel não atualiza nem apaga o texto enquanto você está digitando. Cada
+filme ou série guarda seu próprio patrocinador. Ao colocar aquele título na
+overlay, aparece:
+
+```text
+Patrocionio: Papiluni
+```
