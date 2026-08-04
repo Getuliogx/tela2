@@ -23,10 +23,12 @@ const TMDB_API_KEY = String(
 const STATE_FILE = path.join(__dirname, "state.json");
 const SAVED_FILE = path.join(__dirname, "saved.json");
 const PROGRESS_FILE = path.join(__dirname, "series-progress.json");
+const SPONSOR_FILE = path.join(__dirname, "sponsor.json");
 
 let currentState = loadState();
 let savedItems = loadSavedItems();
 let seriesProgress = loadSeriesProgress();
+let currentSponsor = loadSponsor();
 let ircSocket = null;
 let ircBuffer = "";
 let ircNickname = "";
@@ -37,6 +39,61 @@ let lastChatAt = null;
 let lastCommand = null;
 let lastError = null;
 const sseClients = new Set();
+
+/*
+  Evita que o mesmo comando seja processado duas vezes quando:
+  - a overlay da Twitch e a overlay da Kick estão abertas;
+  - o editor do StreamElements e o OBS estão abertos juntos;
+  - duas cópias do mesmo widget recebem a mesma mensagem.
+*/
+const COMMAND_DEDUP_MS = 2000;
+const recentCommands = new Map();
+
+function normalizeCommandPart(value) {
+  return String(value || "")
+    .trim()
+    .toLocaleLowerCase("pt-BR")
+    .replace(/\s+/g, " ");
+}
+
+function commandRequestKey(body) {
+  const eventId = String(body?.eventId || "").trim();
+  const platform = normalizeCommandPart(body?.platform || "streamelements");
+
+  if (eventId) {
+    return `event:${platform}:${eventId}`;
+  }
+
+  return [
+    "fallback",
+    platform,
+    normalizeCommandPart(body?.user || "chat"),
+    normalizeCommandPart(body?.command || "")
+  ].join(":");
+}
+
+function claimCommand(body) {
+  const now = Date.now();
+  const key = commandRequestKey(body);
+
+  for (const [storedKey, storedAt] of recentCommands) {
+    if (now - storedAt > COMMAND_DEDUP_MS * 3) {
+      recentCommands.delete(storedKey);
+    }
+  }
+
+  const previous = recentCommands.get(key);
+
+  if (
+    typeof previous === "number" &&
+    now - previous < COMMAND_DEDUP_MS
+  ) {
+    return false;
+  }
+
+  recentCommands.set(key, now);
+  return true;
+}
 
 function loadJson(file, fallback) {
   try {
@@ -107,6 +164,29 @@ function loadSeriesProgress() {
   return cleaned;
 }
 
+function cleanSponsorName(value) {
+  return String(value || "")
+    .replace(/[<>\r\n]/g, "")
+    .trim()
+    .slice(0, 60);
+}
+
+function loadSponsor() {
+  const value = loadJson(SPONSOR_FILE, { name: "" });
+
+  if (typeof value === "string") {
+    return cleanSponsorName(value);
+  }
+
+  return cleanSponsorName(value?.name || "");
+}
+
+function sponsorText() {
+  return currentSponsor
+    ? `Patrocionio: ${currentSponsor}`
+    : "";
+}
+
 function validMediaItem(value) {
   return Boolean(
     value &&
@@ -127,6 +207,41 @@ function saveSavedItems() {
 
 function saveSeriesProgress() {
   writeJson(PROGRESS_FILE, seriesProgress);
+}
+
+function saveSponsor() {
+  writeJson(SPONSOR_FILE, {
+    name: currentSponsor,
+    text: sponsorText(),
+    updatedAt: new Date().toISOString()
+  });
+}
+
+function setSponsor(name, updatedBy = "painel adm") {
+  currentSponsor = cleanSponsorName(name);
+  saveSponsor();
+
+  if (currentState) {
+    currentState = {
+      ...currentState,
+      sponsor: currentSponsor,
+      sponsorText: sponsorText(),
+      revision: Date.now(),
+      updatedBy,
+      updatedAt: new Date().toISOString()
+    };
+
+    saveState();
+    broadcastState();
+  }
+
+  console.log(
+    currentSponsor
+      ? `[patrocinio] ${sponsorText()}`
+      : "[patrocinio] Removido"
+  );
+
+  return currentSponsor;
 }
 
 function seriesProgressKey(item) {
@@ -645,6 +760,8 @@ function updateOverlay(item, suffix = "", updatedBy = "painel") {
     typeLabel: item.typeLabel || typeLabel(item.type),
     poster: String(item.poster || ""),
     overview: String(item.overview || ""),
+    sponsor: currentSponsor,
+    sponsorText: sponsorText(),
     updatedBy,
     updatedAt: new Date().toISOString()
   };
@@ -977,7 +1094,12 @@ function connectTwitch() {
 const ADMIN_HTML = fs.readFileSync(path.join(__dirname, "admin.html"), "utf8");
 
 async function handleApi(request, response, url) {
-  if (!requireAdmin(request, response)) return;
+  if (
+    url.pathname !== "/api/command" &&
+    !requireAdmin(request, response)
+  ) {
+    return;
+  }
 
   if (request.method === "GET" && url.pathname === "/api/search") {
     const type = url.searchParams.get("type") === "tv" ? "tv" : "movie";
@@ -1059,6 +1181,48 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === "GET" && url.pathname === "/api/sponsor") {
+    sendJson(response, 200, {
+      ok: true,
+      sponsor: currentSponsor,
+      text: sponsorText(),
+      state: currentState
+    });
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/sponsor") {
+    try {
+      const body = await readJson(request);
+      const sponsor = setSponsor(body.name, "painel adm");
+
+      sendJson(response, 200, {
+        ok: true,
+        sponsor,
+        text: sponsorText(),
+        state: currentState
+      });
+    } catch (error) {
+      sendJson(response, 400, {
+        ok: false,
+        error: error.message
+      });
+    }
+    return;
+  }
+
+  if (request.method === "DELETE" && url.pathname === "/api/sponsor") {
+    setSponsor("", "painel adm");
+
+    sendJson(response, 200, {
+      ok: true,
+      sponsor: "",
+      text: "",
+      state: currentState
+    });
+    return;
+  }
+
   if (request.method === "POST" && url.pathname === "/api/overlay") {
     try {
       const body = await readJson(request);
@@ -1077,6 +1241,15 @@ async function handleApi(request, response, url) {
       const rawCommand = String(body.command || "").trim();
       const username = String(body.user || "chat").trim() || "chat";
       const normalized = rawCommand.toLocaleLowerCase("pt-BR");
+
+      if (!claimCommand(body)) {
+        sendJson(response, 200, {
+          ok: true,
+          duplicate: true,
+          state: currentState
+        });
+        return;
+      }
 
       if (normalized === "!d") {
         const state = advanceEpisode(username);
@@ -1307,7 +1480,33 @@ function runSelfTest() {
     throw new Error("Falha ao excluir o conteúdo da overlay");
   }
 
-  console.log("[teste] Progresso separado por série, !d e !t validados");
+  setSponsor("Papiluni", "autoteste");
+
+  const sponsorState = updateOverlay(
+    {
+      tmdbId: 3,
+      type: "movie",
+      title: "Alien",
+      year: "1979",
+      typeLabel: "Filme",
+      poster: "",
+      overview: ""
+    },
+    "",
+    "autoteste"
+  );
+
+  if (
+    sponsorState.sponsor !== "Papiluni" ||
+    sponsorState.sponsorText !== "Patrocionio: Papiluni"
+  ) {
+    throw new Error("Falha ao colocar o patrocinador no estado");
+  }
+
+  setSponsor("", "autoteste");
+  clearOverlay("autoteste");
+
+  console.log("[teste] Progresso, comandos e patrocínio no mesmo servidor validados");
 }
 
 if (process.argv.includes("--self-test")) {
@@ -1350,6 +1549,8 @@ const server = http.createServer(async (request, response) => {
       twitchJoined,
       hasContent: Boolean(currentState),
       savedCount: savedItems.length,
+      sponsor: currentSponsor,
+      sponsorText: sponsorText(),
       connectedWidgets: sseClients.size,
       lastChatAt,
       lastCommand,
@@ -1401,7 +1602,7 @@ server.requestTimeout = 30000;
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`[http] Serviço iniciado na porta ${PORT}`);
   console.log(`[admin] http://localhost:${PORT}/admin`);
-  connectTwitch();
+  console.log("[comandos] Recebidos somente pelo StreamElements");
 });
 
 function shutdown(signal) {

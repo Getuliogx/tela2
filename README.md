@@ -116,3 +116,34 @@ Elite EP8 - T3
 
 O comando `!d` e as setas do painel também atualizam esse progresso.
 Excluir da overlay ou excluir o título da lista não apaga o progresso da série.
+
+
+## Correção de comando duplicado
+
+Os comandos agora entram somente pelo StreamElements. A conexão direta do
+Render com o chat da Twitch foi desativada.
+
+O servidor também ignora o mesmo evento recebido novamente durante 2 segundos.
+Assim, mesmo com as overlays da Twitch e da Kick abertas, um único `!d` avança
+somente um episódio.
+
+
+## Patrocínio no mesmo servidor
+
+O painel em `/admin` agora possui uma seção **Patrocínio**, abaixo dos títulos
+salvos. Digite o nick e clique em **Atualizar patrocínio**.
+
+A overlay recebe tudo por:
+
+```text
+https://tela2.onrender.com/state
+https://tela2.onrender.com/events
+```
+
+Formato exibido:
+
+```text
+Patrocionio: Papiluni
+```
+
+Não é usado nenhum outro servidor.

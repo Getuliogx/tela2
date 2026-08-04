@@ -23,6 +23,11 @@
 .episode-auto-status.sending{color:#d8b4fe}
 .episode-auto-status.ok{color:#8ff0aa}
 .episode-auto-status.error{color:#ffb4bd}
+.sponsor-panel{border-color:#4c2a68}
+.sponsor-form{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.sponsor-form .field{flex:1;min-width:260px}
+.sponsor-preview{margin-top:14px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:#0e0e14;color:#f49dee;font-size:18px;font-weight:900}
+.sponsor-preview.empty{color:var(--muted);font-weight:700}
 
 @media(max-width:760px){.episode-row{align-items:stretch}.episode-auto-status{width:100%;margin-left:0;padding-bottom:0}.stepper{grid-template-columns:44px minmax(82px,110px) 44px}.top{align-items:flex-start;flex-direction:column}.grid-form{grid-template-columns:1fr 1fr}.grid-form .query{grid-column:1/-1}.grid-form .search-btn{grid-column:1/-1}.row .password{max-width:none;flex:1}.results,.saved{grid-template-columns:1fr}}
 </style>
@@ -89,6 +94,22 @@
     <div class="section-head"><h2>Títulos salvos</h2><span id="savedCount" class="count">0 salvos</span></div>
     <div id="saved" class="saved"><div class="empty">Nenhum título salvo.</div></div>
   </section>
+
+  <section class="panel sponsor-panel">
+    <div class="section-head">
+      <h2>Patrocínio</h2>
+      <span id="sponsorStatus" class="count">Sem patrocinador</span>
+    </div>
+
+    <div class="sponsor-form">
+      <input id="sponsorName" class="field" maxlength="60" placeholder="Digite o nick de quem patrocinou, exemplo: Papiluni">
+      <button id="saveSponsor" class="primary" type="button">Atualizar patrocínio</button>
+      <button id="clearSponsor" class="danger" type="button">Remover patrocínio</button>
+    </div>
+
+    <div id="sponsorPreview" class="sponsor-preview empty">Nenhum patrocinador definido.</div>
+    <div class="hint">Na overlay aparece assim: “Patrocionio: Papiluni”.</div>
+  </section>
 </div>
 <div id="notice" class="notice"></div>
 <script>
@@ -107,6 +128,11 @@
   const episodeEl = $("#episode");
   const seasonEl = $("#season");
   const episodeAutoStatusEl = $("#episodeAutoStatus");
+  const sponsorNameEl = $("#sponsorName");
+  const sponsorStatusEl = $("#sponsorStatus");
+  const sponsorPreviewEl = $("#sponsorPreview");
+  const saveSponsorButton = $("#saveSponsor");
+  const clearSponsorButton = $("#clearSponsor");
 
   let saved = loadLocal();
   let currentOverlayItem = null;
@@ -271,7 +297,24 @@
     scheduleEpisodeUpdate(true)
   });
 
-  async function refreshState(){try{const response=await fetch("/state?t="+Date.now(),{cache:"no-store"});renderCurrent(response.ok?await response.json():null);$("#connectionStatus").textContent="Overlay conectada";$("#connectionStatus").className="status ok"}catch{$("#connectionStatus").textContent="Sem conexão";$("#connectionStatus").className="status"}}
+  function renderSponsor(name){
+    const clean=String(name||"").trim();
+    sponsorNameEl.value=clean;
+    sponsorStatusEl.textContent=clean?"Ativo":"Sem patrocinador";
+    sponsorPreviewEl.textContent=clean?`Patrocionio: ${clean}`:"Nenhum patrocinador definido.";
+    sponsorPreviewEl.className="sponsor-preview"+(clean?"":" empty")
+  }
+
+  async function refreshSponsor(){
+    try{
+      const payload=await api("/api/sponsor");
+      renderSponsor(payload.sponsor||"")
+    }catch(error){
+      notify(error.message,true)
+    }
+  }
+
+  async function refreshState(){try{const response=await fetch("/state?t="+Date.now(),{cache:"no-store"});const state=response.ok?await response.json():null;renderCurrent(state);if(state&&Object.prototype.hasOwnProperty.call(state,"sponsor"))renderSponsor(state.sponsor);$("#connectionStatus").textContent="Overlay conectada";$("#connectionStatus").className="status ok"}catch{$("#connectionStatus").textContent="Sem conexão";$("#connectionStatus").className="status"}}
   async function loadServerSaved(){try{const payload=await api("/api/saved");mergeSaved(payload.items||[])}catch(error){if(error.message.includes("Senha"))notify(error.message,true)}}
   $("#searchForm").addEventListener("submit",async event=>{event.preventDefault();const form=event.currentTarget;form.classList.add("busy");try{const params=new URLSearchParams({type:$("#type").value,q:$("#query").value.trim(),year:$("#year").value.trim()});const payload=await api("/api/search?"+params);renderResults(payload.results||[])}catch(error){notify(error.message,true)}finally{form.classList.remove("busy")}});
   async function updateItem(item){try{const payload=await api("/api/overlay",{method:"POST",body:JSON.stringify({item,suffix:""})});renderCurrent(payload.state);notify("Overlay atualizada: "+payload.state.title)}catch(error){notify(error.message,true)}}
@@ -281,6 +324,55 @@
   resultsEl.addEventListener("click",event=>handleCards(event,"results"));
   savedEl.addEventListener("click",event=>handleCards(event,"saved"));
   $("#refreshState").addEventListener("click",refreshState);
+
+  saveSponsorButton.addEventListener("click",async()=>{
+    const name=sponsorNameEl.value.trim();
+
+    if(!name){
+      notify("Digite o nick do patrocinador",true);
+      sponsorNameEl.focus();
+      return
+    }
+
+    saveSponsorButton.disabled=true;
+
+    try{
+      const payload=await api("/api/sponsor",{
+        method:"POST",
+        body:JSON.stringify({name})
+      });
+
+      renderSponsor(payload.sponsor||"");
+      if(payload.state)renderCurrent(payload.state);
+      notify(`Patrocionio: ${payload.sponsor}`)
+    }catch(error){
+      notify(error.message,true)
+    }finally{
+      saveSponsorButton.disabled=false
+    }
+  });
+
+  sponsorNameEl.addEventListener("keydown",event=>{
+    if(event.key==="Enter"){
+      event.preventDefault();
+      saveSponsorButton.click()
+    }
+  });
+
+  clearSponsorButton.addEventListener("click",async()=>{
+    clearSponsorButton.disabled=true;
+
+    try{
+      const payload=await api("/api/sponsor",{method:"DELETE"});
+      renderSponsor("");
+      if(payload.state)renderCurrent(payload.state);
+      notify("Patrocínio removido")
+    }catch(error){
+      notify(error.message,true)
+    }finally{
+      clearSponsorButton.disabled=false
+    }
+  });
 
   clearOverlayButton.addEventListener("click",async()=>{
     if(clearOverlayButton.disabled)return;
@@ -299,7 +391,7 @@
     }
   });
 
-  renderSaved();refreshState();loadServerSaved();setInterval(refreshState,5000);
+  renderSaved();refreshState();refreshSponsor();loadServerSaved();setInterval(()=>{refreshState();refreshSponsor()},5000);
 })();
 </script>
 </body>

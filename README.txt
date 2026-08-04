@@ -52,3 +52,17 @@ PROGRESSO POR SERIE:
 - excluir da lista nao apaga;
 - ao colocar a serie novamente, o EP/T antigo volta automaticamente;
 - !d e as setas do painel atualizam o progresso salvo.
+
+
+CORRECAO DE COMANDO DUPLICADO:
+- comandos somente pelo StreamElements;
+- leitura direta do chat Twitch desativada no Render;
+- mesmo evento recebido duas vezes e ignorado;
+- !d avanca somente um episodio.
+
+
+PATROCINIO NO MESMO SERVIDOR:
+- opção abaixo dos títulos salvos;
+- digite o nick;
+- aparece como Patrocionio: Papiluni;
+- servidor único: https://tela2.onrender.com.
