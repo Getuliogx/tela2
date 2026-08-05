@@ -1337,17 +1337,32 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/ping")) {
-    sendText(response, 200, "OK");
+  if (
+    (request.method === "GET" || request.method === "HEAD") &&
+    (url.pathname === "/" || url.pathname === "/ping")
+  ) {
+    if (request.method === "HEAD") {
+      response.writeHead(200, {
+        ...commonHeaders("text/plain; charset=utf-8"),
+        "Content-Length": "0"
+      });
+      response.end();
+    } else {
+      sendText(response, 200, "OK");
+    }
     return;
   }
 
-  if (request.method === "GET" && url.pathname === "/health") {
-    sendJson(response, 200, {
+  if (
+    (request.method === "GET" || request.method === "HEAD") &&
+    url.pathname === "/health"
+  ) {
+    const health = {
       ok: true,
+      commandMode: "streamelements-api",
       channel: TWITCH_CHANNEL,
-      twitchConnected: Boolean(ircSocket && !ircSocket.destroyed),
-      twitchJoined,
+      twitchConnected: false,
+      twitchJoined: false,
       hasContent: Boolean(currentState),
       savedCount: savedItems.length,
       connectedWidgets: sseClients.size,
@@ -1355,7 +1370,17 @@ const server = http.createServer(async (request, response) => {
       lastCommand,
       lastError,
       uptimeSeconds: Math.floor(process.uptime())
-    });
+    };
+
+    if (request.method === "HEAD") {
+      response.writeHead(200, {
+        ...commonHeaders("application/json; charset=utf-8"),
+        "Content-Length": "0"
+      });
+      response.end();
+    } else {
+      sendJson(response, 200, health);
+    }
     return;
   }
 
@@ -1395,19 +1420,30 @@ const server = http.createServer(async (request, response) => {
 });
 
 server.keepAliveTimeout = 65000;
-server.headersTimeout = 66000;
+server.headersTimeout = 70000;
 server.requestTimeout = 30000;
+
+server.on("clientError", (error, socket) => {
+  console.error("[http client]", error.message);
+  if (socket.writable) {
+    socket.end("HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n");
+  }
+});
+
+server.on("error", error => {
+  console.error("[http fatal]", error);
+  process.exitCode = 1;
+});
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`[http] Serviço iniciado na porta ${PORT}`);
   console.log(`[admin] http://localhost:${PORT}/admin`);
-  connectTwitch();
+  console.log("[comandos] StreamElements via /api/command");
 });
 
 function shutdown(signal) {
   console.log(`[sistema] Encerrando por ${signal}`);
   if (reconnectTimer) clearTimeout(reconnectTimer);
-  try { ircSocket?.destroy(); } catch {}
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 5000).unref();
 }

@@ -1,54 +1,41 @@
-TELA2 - PAINEL ADM
+TELA2 — Render reconstruído e estável
 
-PAINEL:
-https://tela2.onrender.com/admin
+Os arquivos deste ZIP ficam diretamente na raiz do GitHub. Não envie uma pasta `tela2-main` contendo os arquivos.
 
-RENDER:
+#Configuração do Web Service
+
+```text
+Root Directory: vazio
 Build Command: npm install
 Start Command: npm start
 Health Check Path: /ping
+```
 
-USO:
-1. Pesquise um filme ou uma serie.
-2. Clique em Salvar para guardar na lista.
-3. Clique em Atualizar overlay para trocar o card imediatamente.
-4. O campo Complemento aceita, por exemplo: EP1 - T2.
+#Endereços
 
-SENHA OPCIONAL:
-Variavel do Render: ADMIN_PASSWORD
+```text
+/        -> OK
+/ping    -> OK
+/health  -> diagnóstico JSON
+/admin   -> painel
+/state   -> estado da overlay
+/events  -> atualizações SSE
+```
 
+#UptimeRobot
 
-CAPAS:
-- procura poster alternativo na TMDB;
-- usa backdrop quando nao existe poster;
-- cria capa com o titulo quando nao existe nenhuma imagem;
-- corrige itens antigos salvos sem capa.
+Use a URL completa terminando em `/ping`:
 
+```text
+https://SEU-SERVICO.onrender.com/ping
+```
 
-EPISODIO E TEMPORADA:
-- aparecem automaticamente quando a overlay atual e uma serie;
-- digitar atualiza sozinho;
-- clicar nas setas para cima ou para baixo atualiza sozinho.
+#Correções aplicadas
 
-
-EXCLUIR DA OVERLAY:
-- botao "Excluir da overlay" no painel;
-- comando !t no chat.
-
-
-COMANDO PARA PROXIMO EPISODIO:
-!d
-
-EXEMPLO:
-Elite EP1 - T2
-!d
-Elite EP2 - T2
-
-
-PROGRESSO POR SERIE:
-- cada serie guarda seu proprio episodio e temporada;
-- trocar de conteudo nao apaga;
-- usar !t nao apaga;
-- excluir da lista nao apaga;
-- ao colocar a serie novamente, o EP/T antigo volta automaticamente;
-- !d e as setas do painel atualizam o progresso salvo.
+- estrutura achatada na raiz;
+- Node 22 fixado com limite de versão;
+- servidor ligado em `0.0.0.0` e `process.env.PORT`;
+- `/`, `/ping` e `/health` aceitam GET e HEAD;
+- conexão direta instável ao IRC da Twitch não inicia;
+- comandos continuam por `/api/command` via StreamElements;
+- nenhuma dependência externa é necessária para o servidor iniciar.

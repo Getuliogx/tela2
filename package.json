@@ -1,12 +1,12 @@
 {
-  "name": "tela2",
-  "version": "4.0.0",
+  "name": "tela2-render-estavel",
+  "version": "5.0.0",
   "private": true,
-  "description": "Overlay Assistindo Agora com painel administrativo.",
+  "description": "Overlay Assistindo Agora e painel administrativo para Render.",
   "main": "server.js",
   "type": "commonjs",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.16.0 <23.0.0"
   },
   "scripts": {
     "start": "node server.js",
