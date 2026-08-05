@@ -23,12 +23,6 @@
 .episode-auto-status.sending{color:#d8b4fe}
 .episode-auto-status.ok{color:#8ff0aa}
 .episode-auto-status.error{color:#ffb4bd}
-.card-sponsor-editor{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
-.card-sponsor-label{display:block;margin-bottom:6px;color:#f49dee;font-size:12px;font-weight:900}
-.card-sponsor-input{width:100%;min-width:0;padding:8px 9px;border-radius:9px;font-size:13px}
-.card-sponsor-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
-.card-sponsor-current{margin-top:6px;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.card-sponsor-current.active{color:#f49dee;font-weight:800}
 
 @media(max-width:760px){.episode-row{align-items:stretch}.episode-auto-status{width:100%;margin-left:0;padding-bottom:0}.stepper{grid-template-columns:44px minmax(82px,110px) 44px}.top{align-items:flex-start;flex-direction:column}.grid-form{grid-template-columns:1fr 1fr}.grid-form .query{grid-column:1/-1}.grid-form .search-btn{grid-column:1/-1}.row .password{max-width:none;flex:1}.results,.saved{grid-template-columns:1fr}}
 </style>
@@ -95,7 +89,6 @@
     <div class="section-head"><h2>Títulos salvos</h2><span id="savedCount" class="count">0 salvos</span></div>
     <div id="saved" class="saved"><div class="empty">Nenhum título salvo.</div></div>
   </section>
-
 </div>
 <div id="notice" class="notice"></div>
 <script>
@@ -133,42 +126,7 @@
   function notify(message,error=false){noticeEl.textContent=message;noticeEl.className="notice show"+(error?" error":"");clearTimeout(notify.timer);notify.timer=setTimeout(()=>noticeEl.className="notice",2800)}
   async function api(url,options={}){const response=await fetch(url,{cache:"no-store",...options,headers:{...headers(),...(options.headers||{})}});let payload=null;try{payload=await response.json()}catch{}if(!response.ok)throw new Error(payload?.error||("Erro "+response.status));return payload}
   function posterHtml(item){const title=escapeHtml(item.title||"Sem capa");const image=item.poster?`<img src="${escapeHtml(item.poster)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`:"";const fallbackStyle=item.poster?"display:none":"";return `<div class="poster-frame">${image}<div class="poster-fallback" style="${fallbackStyle}">${title}</div></div>`}
-  function cardHtml(item,savedMode=false){
-    const progress=item.savedSuffix?` • ${escapeHtml(item.savedSuffix)}`:"";
-    const sponsor=String(item.sponsor||"").trim();
-    const sponsorEditor=savedMode
-      ? `<div class="card-sponsor-editor">
-          <label class="card-sponsor-label">Patrocínio deste título</label>
-          <input
-            class="field card-sponsor-input"
-            data-sponsor-input="${escapeHtml(keyOf(item))}"
-            maxlength="60"
-            autocomplete="off"
-            value="${escapeHtml(sponsor)}"
-            placeholder="Nick, exemplo: Papiluni">
-          <div class="card-sponsor-actions">
-            <button class="secondary small" data-action="save-item-sponsor" data-key="${escapeHtml(keyOf(item))}">Salvar patrocínio</button>
-            <button class="danger small" data-action="clear-item-sponsor" data-key="${escapeHtml(keyOf(item))}" ${sponsor?"":"disabled"}>Remover</button>
-          </div>
-          <div class="card-sponsor-current${sponsor?" active":""}">${sponsor?`Patrocionio: ${escapeHtml(sponsor)}`:"Digite o nick e clique em Salvar ou Atualizar overlay"}</div>
-        </div>`
-      : "";
-
-    return `<article class="card" data-card-key="${escapeHtml(keyOf(item))}">
-      ${posterHtml(item)}
-      <div class="card-body">
-        <div class="card-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
-        <div class="card-meta">${escapeHtml(item.typeLabel||(item.type==="tv"?"Série":"Filme"))}${item.year?" • "+escapeHtml(item.year):""}${progress}</div>
-        <div class="card-actions">
-          <button class="primary small" data-action="update" data-key="${escapeHtml(keyOf(item))}">Atualizar overlay</button>
-          ${savedMode
-            ? `<button class="danger small" data-action="remove" data-key="${escapeHtml(keyOf(item))}">Excluir</button>`
-            : `<button class="secondary small" data-action="save" data-key="${escapeHtml(keyOf(item))}">Salvar</button>`}
-        </div>
-        ${sponsorEditor}
-      </div>
-    </article>`;
-  }
+  function cardHtml(item,savedMode=false){const progress=item.savedSuffix?` • ${escapeHtml(item.savedSuffix)}`:"";return `<article class="card">${posterHtml(item)}<div class="card-body"><div class="card-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div><div class="card-meta">${escapeHtml(item.typeLabel|| (item.type==="tv"?"Série":"Filme"))}${item.year?" • "+escapeHtml(item.year):""}${progress}</div><div class="card-actions"><button class="primary small" data-action="update" data-key="${escapeHtml(keyOf(item))}">Atualizar overlay</button>${savedMode?`<button class="danger small" data-action="remove" data-key="${escapeHtml(keyOf(item))}">Excluir</button>`:`<button class="secondary small" data-action="save" data-key="${escapeHtml(keyOf(item))}">Salvar</button>`}</div></div></article>`}
   function renderResults(items){window.__searchResults=items;resultsEl.innerHTML=items.length?items.map(item=>cardHtml(item,false)).join(""):`<div class="empty">Nenhum resultado encontrado.</div>`}
   function renderSaved(){window.__savedItems=saved;savedEl.innerHTML=saved.length?saved.map(item=>cardHtml(item,true)).join(""):`<div class="empty">Nenhum título salvo.</div>`;$("#savedCount").textContent=saved.length+" salvo"+(saved.length===1?"":"s")}
   function stripEpisodeSuffix(value){
@@ -313,178 +271,15 @@
     scheduleEpisodeUpdate(true)
   });
 
-  async function refreshState(){try{const response=await fetch("/state?t="+Date.now(),{cache:"no-store"});const state=response.ok?await response.json():null;renderCurrent(state);$("#connectionStatus").textContent="Overlay conectada";$("#connectionStatus").className="status ok"}catch{$("#connectionStatus").textContent="Sem conexão";$("#connectionStatus").className="status"}}
+  async function refreshState(){try{const response=await fetch("/state?t="+Date.now(),{cache:"no-store"});renderCurrent(response.ok?await response.json():null);$("#connectionStatus").textContent="Overlay conectada";$("#connectionStatus").className="status ok"}catch{$("#connectionStatus").textContent="Sem conexão";$("#connectionStatus").className="status"}}
   async function loadServerSaved(){try{const payload=await api("/api/saved");mergeSaved(payload.items||[])}catch(error){if(error.message.includes("Senha"))notify(error.message,true)}}
   $("#searchForm").addEventListener("submit",async event=>{event.preventDefault();const form=event.currentTarget;form.classList.add("busy");try{const params=new URLSearchParams({type:$("#type").value,q:$("#query").value.trim(),year:$("#year").value.trim()});const payload=await api("/api/search?"+params);renderResults(payload.results||[])}catch(error){notify(error.message,true)}finally{form.classList.remove("busy")}});
-  async function updateItem(item,card=null,source="results"){
-    try{
-      let finalItem={...item};
-
-      if(source==="saved"&&card){
-        const input=card.querySelector("[data-sponsor-input]");
-        const typedSponsor=String(input?.value||"").trim();
-        const currentSponsor=String(item.sponsor||"").trim();
-        const desiredSponsor=typedSponsor||currentSponsor;
-
-        finalItem={
-          ...item,
-          sponsor:desiredSponsor
-        };
-
-        /*
-          /api/saved cria ou atualiza o título. Portanto funciona mesmo
-          quando o card só existe no navegador e o Render perdeu saved.json.
-        */
-        const savedPayload=await api("/api/saved",{
-          method:"POST",
-          body:JSON.stringify({
-            item:finalItem,
-            sponsor:desiredSponsor
-          })
-        });
-
-        const serverItem=(savedPayload.items||[]).find(
-          entry=>keyOf(entry)===keyOf(finalItem)
-        );
-
-        if(serverItem){
-          finalItem=serverItem
-        }
-
-        const map=new Map(
-          saved.map(entry=>[keyOf(entry),entry])
-        );
-
-        map.set(keyOf(finalItem),finalItem);
-        saved=[...map.values()];
-        saveLocal()
-      }
-
-      const payload=await api("/api/overlay",{
-        method:"POST",
-        body:JSON.stringify({
-          item:finalItem,
-          suffix:""
-        })
-      });
-
-      renderCurrent(payload.state);
-
-      if(source==="saved"){
-        renderSaved()
-      }
-
-      const sponsorText=payload.state?.sponsorText
-        ? ` • ${payload.state.sponsorText}`
-        : "";
-
-      notify("Overlay atualizada: "+payload.state.title+sponsorText)
-    }catch(error){
-      notify(error.message,true)
-    }
-  }
+  async function updateItem(item){try{const payload=await api("/api/overlay",{method:"POST",body:JSON.stringify({item,suffix:""})});renderCurrent(payload.state);notify("Overlay atualizada: "+payload.state.title)}catch(error){notify(error.message,true)}}
   async function addItem(item){saved=[item,...saved.filter(entry=>keyOf(entry)!==keyOf(item))];saveLocal();renderSaved();try{await api("/api/saved",{method:"POST",body:JSON.stringify({item})});notify("Título salvo") }catch(error){notify("Salvo neste navegador. "+error.message,true)}}
   async function removeItem(item){saved=saved.filter(entry=>keyOf(entry)!==keyOf(item));saveLocal();renderSaved();try{await api("/api/saved/"+encodeURIComponent(item.type)+"/"+encodeURIComponent(item.tmdbId),{method:"DELETE"});notify("Título removido")}catch(error){notify("Removido deste navegador. "+error.message,true)}}
-  async function saveItemSponsor(item,card,clear=false){
-    const input=card?.querySelector("[data-sponsor-input]");
-    const name=clear?"":String(input?.value||"").trim();
-
-    if(!clear&&!name){
-      input?.focus();
-      return
-    }
-
-    const finalItem={
-      ...item,
-      sponsor:name
-    };
-
-    /*
-      Usa o endpoint de upsert do título. Não depende de o título já
-      existir em saved.json e, por isso, não gera mais o erro anterior.
-    */
-    const payload=await api("/api/saved",{
-      method:"POST",
-      body:JSON.stringify({
-        item:finalItem,
-        sponsor:name
-      })
-    });
-
-    const updated=(payload.items||[]).find(
-      entry=>keyOf(entry)===keyOf(finalItem)
-    )||finalItem;
-
-    const map=new Map(
-      saved.map(entry=>[keyOf(entry),entry])
-    );
-
-    map.set(keyOf(updated),updated);
-    saved=[...map.values()];
-    saveLocal();
-    renderSaved();
-
-    /*
-      Quando este título já está na overlay, atualiza o nick na hora.
-    */
-    if(
-      currentOverlayItem &&
-      keyOf(currentOverlayItem)===keyOf(updated)
-    ){
-      const overlayPayload=await api("/api/overlay",{
-        method:"POST",
-        body:JSON.stringify({
-          item:updated,
-          suffix:currentOverlayItem.suffix||""
-        })
-      });
-
-      renderCurrent(overlayPayload.state)
-    }
-
-    notify(
-      clear
-        ? `Patrocínio removido de ${item.title}`
-        : `Patrocionio: ${updated.sponsor}`
-    )
-  }
-
-  async function handleCards(event,source){
-    const button=event.target.closest("button[data-action]");
-    if(!button)return;
-
-    const items=source==="saved"?window.__savedItems:window.__searchResults;
-    const item=(items||[]).find(entry=>keyOf(entry)===button.dataset.key);
-    if(!item)return;
-
-    const card=button.closest(".card");
-    button.disabled=true;
-
-    try{
-      if(button.dataset.action==="update")await updateItem(item,card,source);
-      if(button.dataset.action==="save")await addItem(item);
-      if(button.dataset.action==="remove")await removeItem(item);
-      if(button.dataset.action==="save-item-sponsor")await saveItemSponsor(item,card,false);
-      if(button.dataset.action==="clear-item-sponsor")await saveItemSponsor(item,card,true);
-    }finally{
-      if(button.isConnected)button.disabled=false
-    }
-  }
+  async function handleCards(event,source){const button=event.target.closest("button[data-action]");if(!button)return;const items=source==="saved"?window.__savedItems:window.__searchResults;const item=(items||[]).find(entry=>keyOf(entry)===button.dataset.key);if(!item)return;button.disabled=true;try{if(button.dataset.action==="update")await updateItem(item);if(button.dataset.action==="save")await addItem(item);if(button.dataset.action==="remove")await removeItem(item)}finally{button.disabled=false}}
   resultsEl.addEventListener("click",event=>handleCards(event,"results"));
   savedEl.addEventListener("click",event=>handleCards(event,"saved"));
-
-  savedEl.addEventListener("keydown",event=>{
-    const input=event.target.closest("[data-sponsor-input]");
-
-    if(!input||event.key!=="Enter")return;
-
-    event.preventDefault();
-
-    const card=input.closest(".card");
-    const button=card?.querySelector('[data-action="update"]');
-
-    button?.click()
-  });
   $("#refreshState").addEventListener("click",refreshState);
 
   clearOverlayButton.addEventListener("click",async()=>{
