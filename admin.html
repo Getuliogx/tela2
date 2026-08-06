@@ -6,7 +6,17 @@
 <title>Painel do Overlay</title>
 <style>
 :root{color-scheme:dark;--bg:#09090d;--panel:#13131a;--panel2:#1a1a23;--line:#2b2b38;--text:#f4f4f7;--muted:#a4a4b2;--accent:#a855f7;--accent2:#7c3aed;--danger:#ef4444;--ok:#22c55e}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#1b1029 0,#09090d 42%);color:var(--text);font-family:Inter,Segoe UI,Arial,sans-serif;min-height:100vh}.wrap{width:min(1180px,calc(100% - 28px));margin:0 auto;padding:26px 0 60px}.top{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:22px}.brand h1{margin:0;font-size:clamp(24px,4vw,38px)}.brand p{margin:7px 0 0;color:var(--muted)}.status{padding:9px 13px;border:1px solid var(--line);background:#111118;border-radius:999px;color:var(--muted);font-size:13px}.status.ok{border-color:#245f38;color:#8ff0aa}.panel{background:rgba(19,19,26,.96);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.34);margin-bottom:18px}.panel h2{margin:0 0 15px;font-size:18px}.current{display:flex;align-items:center;gap:15px;min-height:86px}.current img{width:58px;height:82px;object-fit:cover;border-radius:9px;background:#23232d}.current .title{font-size:20px;font-weight:800}.current .meta{color:var(--muted);margin-top:5px}.grid-form{display:grid;grid-template-columns:150px 1fr 120px auto;gap:10px}.field{background:#0e0e14;border:1px solid var(--line);border-radius:11px;padding:12px 13px;color:var(--text);font:inherit;outline:none}.field:focus{border-color:var(--accent)}button{border:0;border-radius:11px;padding:12px 15px;font:inherit;font-weight:800;cursor:pointer}.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:white}.secondary{background:#262633;color:var(--text)}.danger{background:#3b171c;color:#ffb4bd}.small{padding:9px 11px;font-size:13px}.results,.saved{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:14px}.card{display:flex;gap:12px;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:11px;min-width:0}.poster-frame{position:relative;width:72px;height:105px;flex:0 0 auto;border-radius:8px;overflow:hidden;background:#252530}.poster-frame img{width:100%;height:100%;object-fit:cover;display:block}.poster-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:8px;text-align:center;background:linear-gradient(145deg,#2a1740,#111118);color:#fff;font-size:11px;font-weight:800;line-height:1.15}.current .poster-frame{width:58px;height:82px;border-radius:9px}.current .poster-frame img{width:100%;height:100%;object-fit:cover;display:block}.card-body{min-width:0;display:flex;flex-direction:column;flex:1}.card-title{font-weight:850;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-meta{color:var(--muted);font-size:13px;margin-top:4px}.card-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:auto;padding-top:9px}.empty{color:var(--muted);padding:18px 0}.notice{position:fixed;right:18px;bottom:18px;max-width:360px;background:#171721;border:1px solid var(--line);border-radius:13px;padding:13px 15px;box-shadow:0 12px 40px rgba(0,0,0,.5);opacity:0;transform:translateY(10px);pointer-events:none;transition:.2s}.notice.show{opacity:1;transform:none}.notice.error{border-color:#6f2630;color:#ffb4bd}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.grow{flex:1;min-width:230px}.password{max-width:240px}.hint{color:var(--muted);font-size:13px;margin-top:10px}.spinner{display:none;margin-left:8px}.busy .spinner{display:inline}.section-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.section-actions{display:flex;gap:8px;flex-wrap:wrap}button:disabled{opacity:.45;cursor:not-allowed}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#1b1029 0,#09090d 42%);color:var(--text);font-family:Inter,Segoe UI,Arial,sans-serif;min-height:100vh}.wrap{width:min(1180px,calc(100% - 28px));margin:0 auto;padding:26px 0 60px}.top{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:22px}.brand h1{margin:0;font-size:clamp(24px,4vw,38px)}.brand p{margin:7px 0 0;color:var(--muted)}.status{padding:9px 13px;border:1px solid var(--line);background:#111118;border-radius:999px;color:var(--muted);font-size:13px}.status.ok{border-color:#245f38;color:#8ff0aa}.panel{background:rgba(19,19,26,.96);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.34);margin-bottom:18px}.panel h2{margin:0 0 15px;font-size:18px}.current{display:flex;align-items:center;gap:15px;min-height:86px}.current img{width:58px;height:82px;object-fit:cover;border-radius:9px;background:#23232d}.current .title{font-size:20px;font-weight:800}.current .meta{color:var(--muted);margin-top:5px}.grid-form{display:grid;grid-template-columns:150px 1fr 120px auto;gap:10px}.field{background:#0e0e14;border:1px solid var(--line);border-radius:11px;padding:12px 13px;color:var(--text);font:inherit;outline:none}.field:focus{border-color:var(--accent)}button{border:0;border-radius:11px;padding:12px 15px;font:inherit;font-weight:800;cursor:pointer}.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:white}.secondary{background:#262633;color:var(--text)}.danger{background:#3b171c;color:#ffb4bd}.small{padding:9px 11px;font-size:13px}.results,.saved{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:14px}.card{display:flex;gap:12px;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:11px;min-width:0}.poster-frame{position:relative;width:72px;height:105px;flex:0 0 auto;border-radius:8px;overflow:hidden;background:#252530}.poster-frame img{width:100%;height:100%;object-fit:cover;display:block}.poster-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:8px;text-align:center;background:linear-gradient(145deg,#2a1740,#111118);color:#fff;font-size:11px;font-weight:800;line-height:1.15}.current .poster-frame{width:58px;height:82px;border-radius:9px}.current .poster-frame img{width:100%;height:100%;object-fit:cover;display:block}.card-body{min-width:0;display:flex;flex-direction:column;flex:1}.card-title{font-weight:850;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-meta{color:var(--muted);font-size:13px;margin-top:4px}.card-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:auto;padding-top:9px}
+.series-card-controls{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.series-card-control{display:flex;flex-direction:column;gap:5px;min-width:0}
+.series-card-control>span{color:var(--muted);font-size:11px;font-weight:850;text-transform:uppercase;letter-spacing:.05em}
+.series-card-select,.series-card-episode{width:100%;min-width:0;background:#0e0e14;border:1px solid var(--line);border-radius:9px;padding:8px;color:var(--text);font:inherit;font-size:13px;outline:none}
+.series-card-select:focus,.series-card-episode:focus{border-color:var(--accent)}
+.series-card-stepper{display:grid;grid-template-columns:32px minmax(46px,1fr) 32px;gap:4px}
+.series-card-step{padding:6px 4px;border-radius:8px;background:#292936;color:#fff}
+.series-card-status{grid-column:1/-1;color:#a78bfa;font-size:11px;min-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.series-card-controls.loading{opacity:.58;pointer-events:none}
+.empty{color:var(--muted);padding:18px 0}.notice{position:fixed;right:18px;bottom:18px;max-width:360px;background:#171721;border:1px solid var(--line);border-radius:13px;padding:13px 15px;box-shadow:0 12px 40px rgba(0,0,0,.5);opacity:0;transform:translateY(10px);pointer-events:none;transition:.2s}.notice.show{opacity:1;transform:none}.notice.error{border-color:#6f2630;color:#ffb4bd}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.grow{flex:1;min-width:230px}.password{max-width:240px}.hint{color:var(--muted);font-size:13px;margin-top:10px}.spinner{display:none;margin-left:8px}.busy .spinner{display:inline}.section-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.section-actions{display:flex;gap:8px;flex-wrap:wrap}button:disabled{opacity:.45;cursor:not-allowed}
 .count{color:var(--muted);font-size:13px}
 .episode-controls{display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
 .episode-controls.show{display:block}
@@ -126,7 +136,94 @@
   function notify(message,error=false){noticeEl.textContent=message;noticeEl.className="notice show"+(error?" error":"");clearTimeout(notify.timer);notify.timer=setTimeout(()=>noticeEl.className="notice",2800)}
   async function api(url,options={}){const response=await fetch(url,{cache:"no-store",...options,headers:{...headers(),...(options.headers||{})}});let payload=null;try{payload=await response.json()}catch{}if(!response.ok)throw new Error(payload?.error||("Erro "+response.status));return payload}
   function posterHtml(item){const title=escapeHtml(item.title||"Sem capa");const image=item.poster?`<img src="${escapeHtml(item.poster)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`:"";const fallbackStyle=item.poster?"display:none":"";return `<div class="poster-frame">${image}<div class="poster-fallback" style="${fallbackStyle}">${title}</div></div>`}
-  function cardHtml(item,savedMode=false){const progress=item.savedSuffix?` • ${escapeHtml(item.savedSuffix)}`:"";return `<article class="card">${posterHtml(item)}<div class="card-body"><div class="card-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div><div class="card-meta">${escapeHtml(item.typeLabel|| (item.type==="tv"?"Série":"Filme"))}${item.year?" • "+escapeHtml(item.year):""}${progress}</div><div class="card-actions"><button class="primary small" data-action="update" data-key="${escapeHtml(keyOf(item))}">Atualizar overlay</button>${savedMode?`<button class="danger small" data-action="remove" data-key="${escapeHtml(keyOf(item))}">Excluir</button>`:`<button class="secondary small" data-action="save" data-key="${escapeHtml(keyOf(item))}">Salvar</button>`}</div></div></article>`}
+  function seriesControlsHtml(item,savedMode){
+    if(!savedMode||item.type!=="tv")return "";
+
+    const seasons=Array.isArray(item.seasons)&&item.seasons.length
+      ? item.seasons
+      : [{
+          seasonNumber:Number(item.savedSeason||item.selectedSeason||1),
+          name:`Temporada ${Number(item.savedSeason||item.selectedSeason||1)}`,
+          episodeCount:Number(item.episodeCount||item.savedEpisode||1),
+          poster:item.poster||""
+        }];
+
+    const selectedSeason=Number(
+      item.savedSeason||
+      item.selectedSeason||
+      seasons[0].seasonNumber||
+      1
+    );
+
+    const selectedMeta=seasons.find(season=>
+      Number(season.seasonNumber)===selectedSeason
+    )||seasons[0];
+
+    const episodeCount=Math.max(
+      1,
+      Number(
+        selectedMeta?.episodeCount||
+        item.episodeCount||
+        item.savedEpisode||
+        1
+      )
+    );
+
+    const selectedEpisode=Math.max(
+      1,
+      Math.min(
+        Number(item.savedEpisode||item.selectedEpisode||1),
+        episodeCount
+      )
+    );
+
+    const options=seasons.map(season=>{
+      const number=Number(season.seasonNumber);
+      const name=String(season.name||`Temporada ${number}`);
+      return `<option value="${number}" ${number===selectedSeason?"selected":""}>${escapeHtml(name)}</option>`
+    }).join("");
+
+    return `<div class="series-card-controls" data-series-controls data-key="${escapeHtml(keyOf(item))}">
+      <label class="series-card-control">
+        <span>Temporada</span>
+        <select class="series-card-select" data-series-season>
+          ${options}
+        </select>
+      </label>
+
+      <label class="series-card-control">
+        <span>Episódio</span>
+        <div class="series-card-stepper">
+          <button type="button" class="series-card-step" data-action="series-episode-down" data-key="${escapeHtml(keyOf(item))}">▼</button>
+          <input class="series-card-episode" data-series-episode type="number" min="1" max="${episodeCount}" step="1" value="${selectedEpisode}">
+          <button type="button" class="series-card-step" data-action="series-episode-up" data-key="${escapeHtml(keyOf(item))}">▲</button>
+        </div>
+      </label>
+
+      <div class="series-card-status" data-series-status>
+        EP${selectedEpisode} - T${selectedSeason} • ${episodeCount} episódios
+      </div>
+    </div>`
+  }
+
+  function cardHtml(item,savedMode=false){
+    const progress=item.savedSuffix?` • ${escapeHtml(item.savedSuffix)}`:"";
+
+    return `<article class="card" data-card-key="${escapeHtml(keyOf(item))}">
+      ${posterHtml(item)}
+      <div class="card-body">
+        <div class="card-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
+        <div class="card-meta">${escapeHtml(item.typeLabel||(item.type==="tv"?"Série":"Filme"))}${item.year?" • "+escapeHtml(item.year):""}${progress}</div>
+        ${seriesControlsHtml(item,savedMode)}
+        <div class="card-actions">
+          <button class="primary small" data-action="update" data-key="${escapeHtml(keyOf(item))}">Atualizar overlay</button>
+          ${savedMode
+            ? `<button class="danger small" data-action="remove" data-key="${escapeHtml(keyOf(item))}">Excluir</button>`
+            : `<button class="secondary small" data-action="save" data-key="${escapeHtml(keyOf(item))}">Salvar</button>`}
+        </div>
+      </div>
+    </article>`
+  }
   function renderResults(items){window.__searchResults=items;resultsEl.innerHTML=items.length?items.map(item=>cardHtml(item,false)).join(""):`<div class="empty">Nenhum resultado encontrado.</div>`}
   function renderSaved(){window.__savedItems=saved;savedEl.innerHTML=saved.length?saved.map(item=>cardHtml(item,true)).join(""):`<div class="empty">Nenhum título salvo.</div>`;$("#savedCount").textContent=saved.length+" salvo"+(saved.length===1?"":"s")}
   function stripEpisodeSuffix(value){
@@ -274,12 +371,201 @@
   async function refreshState(){try{const response=await fetch("/state?t="+Date.now(),{cache:"no-store"});renderCurrent(response.ok?await response.json():null);$("#connectionStatus").textContent="Overlay conectada";$("#connectionStatus").className="status ok"}catch{$("#connectionStatus").textContent="Sem conexão";$("#connectionStatus").className="status"}}
   async function loadServerSaved(){try{const payload=await api("/api/saved");mergeSaved(payload.items||[])}catch(error){if(error.message.includes("Senha"))notify(error.message,true)}}
   $("#searchForm").addEventListener("submit",async event=>{event.preventDefault();const form=event.currentTarget;form.classList.add("busy");try{const params=new URLSearchParams({type:$("#type").value,q:$("#query").value.trim(),year:$("#year").value.trim()});const payload=await api("/api/search?"+params);renderResults(payload.results||[])}catch(error){notify(error.message,true)}finally{form.classList.remove("busy")}});
-  async function updateItem(item){try{const payload=await api("/api/overlay",{method:"POST",body:JSON.stringify({item,suffix:""})});renderCurrent(payload.state);notify("Overlay atualizada: "+payload.state.title)}catch(error){notify(error.message,true)}}
+  function replaceSavedItem(updated){
+    saved=saved.map(item=>
+      keyOf(item)===keyOf(updated)
+        ? updated
+        : item
+    );
+    saveLocal()
+  }
+
+  function seriesValues(card,item){
+    const season=Math.max(
+      1,
+      Number(
+        card?.querySelector("[data-series-season]")?.value||
+        item.savedSeason||
+        item.selectedSeason||
+        1
+      )
+    );
+
+    const episodeInput=card?.querySelector("[data-series-episode]");
+    const max=Math.max(
+      1,
+      Number(episodeInput?.max||item.episodeCount||1)
+    );
+
+    const episode=Math.max(
+      1,
+      Math.min(
+        Number(
+          episodeInput?.value||
+          item.savedEpisode||
+          item.selectedEpisode||
+          1
+        ),
+        max
+      )
+    );
+
+    if(episodeInput)episodeInput.value=String(episode);
+
+    return {season,episode}
+  }
+
+  async function persistSeriesCard(item,card,showNotice=false){
+    if(!card||item.type!=="tv")return item;
+
+    const controls=card.querySelector("[data-series-controls]");
+    const status=card.querySelector("[data-series-status]");
+    const {season,episode}=seriesValues(card,item);
+
+    controls?.classList.add("loading");
+    if(status)status.textContent="Carregando capa da temporada…";
+
+    try{
+      const payload=await api(
+        `/api/saved/tv/${encodeURIComponent(item.tmdbId)}/progress`,
+        {
+          method:"POST",
+          body:JSON.stringify({
+            item,
+            season,
+            episode
+          })
+        }
+      );
+
+      const updated=payload.item||item;
+      replaceSavedItem(updated);
+      renderSaved();
+
+      if(showNotice){
+        notify(`Salvo: EP${updated.savedEpisode||episode} - T${updated.savedSeason||season}`)
+      }
+
+      return updated
+    }catch(error){
+      if(status)status.textContent=error.message;
+      if(showNotice)notify(error.message,true);
+      throw error
+    }finally{
+      controls?.classList.remove("loading")
+    }
+  }
+
+  async function updateItem(item,source="results",card=null){
+    try{
+      let finalItem=item;
+      let suffix="";
+
+      if(source==="saved"&&item.type==="tv"){
+        finalItem=await persistSeriesCard(item,card,false);
+        const season=Number(finalItem.savedSeason||finalItem.selectedSeason||1);
+        const episode=Number(finalItem.savedEpisode||finalItem.selectedEpisode||1);
+        suffix=`EP${episode} - T${season}`
+      }
+
+      const payload=await api("/api/overlay",{
+        method:"POST",
+        body:JSON.stringify({
+          item:finalItem,
+          suffix,
+          season:finalItem.selectedSeason||finalItem.savedSeason,
+          episode:finalItem.selectedEpisode||finalItem.savedEpisode
+        })
+      });
+
+      renderCurrent(payload.state);
+      notify("Overlay atualizada: "+payload.state.title)
+    }catch(error){
+      notify(error.message,true)
+    }
+  }
   async function addItem(item){saved=[item,...saved.filter(entry=>keyOf(entry)!==keyOf(item))];saveLocal();renderSaved();try{await api("/api/saved",{method:"POST",body:JSON.stringify({item})});notify("Título salvo") }catch(error){notify("Salvo neste navegador. "+error.message,true)}}
   async function removeItem(item){saved=saved.filter(entry=>keyOf(entry)!==keyOf(item));saveLocal();renderSaved();try{await api("/api/saved/"+encodeURIComponent(item.type)+"/"+encodeURIComponent(item.tmdbId),{method:"DELETE"});notify("Título removido")}catch(error){notify("Removido deste navegador. "+error.message,true)}}
-  async function handleCards(event,source){const button=event.target.closest("button[data-action]");if(!button)return;const items=source==="saved"?window.__savedItems:window.__searchResults;const item=(items||[]).find(entry=>keyOf(entry)===button.dataset.key);if(!item)return;button.disabled=true;try{if(button.dataset.action==="update")await updateItem(item);if(button.dataset.action==="save")await addItem(item);if(button.dataset.action==="remove")await removeItem(item)}finally{button.disabled=false}}
-  resultsEl.addEventListener("click",event=>handleCards(event,"results"));
-  savedEl.addEventListener("click",event=>handleCards(event,"saved"));
+  async function handleCards(event,source){
+    const button=event.target.closest("button[data-action]");
+    if(!button)return;
+
+    const items=source==="saved"
+      ? window.__savedItems
+      : window.__searchResults;
+
+    const item=(items||[]).find(entry=>
+      keyOf(entry)===button.dataset.key
+    );
+
+    if(!item)return;
+
+    const card=button.closest(".card");
+    const action=button.dataset.action;
+    button.disabled=true;
+
+    try{
+      if(action==="update"){
+        await updateItem(item,source,card)
+      }
+
+      if(action==="save"){
+        await addItem(item)
+      }
+
+      if(action==="remove"){
+        await removeItem(item)
+      }
+
+      if(
+        action==="series-episode-up"||
+        action==="series-episode-down"
+      ){
+        const input=card?.querySelector("[data-series-episode]");
+
+        if(input){
+          if(action==="series-episode-up"){
+            input.stepUp()
+          }else{
+            input.stepDown()
+          }
+
+          await persistSeriesCard(item,card,false)
+        }
+      }
+    }finally{
+      if(button.isConnected)button.disabled=false
+    }
+  }
+
+  resultsEl.addEventListener(
+    "click",
+    event=>handleCards(event,"results")
+  );
+
+  savedEl.addEventListener(
+    "click",
+    event=>handleCards(event,"saved")
+  );
+
+  savedEl.addEventListener("change",async event=>{
+    const control=event.target.closest(
+      "[data-series-season],[data-series-episode]"
+    );
+
+    if(!control)return;
+
+    const card=control.closest(".card");
+    const item=(window.__savedItems||[]).find(entry=>
+      keyOf(entry)===card?.dataset.cardKey
+    );
+
+    if(!item)return;
+
+    try{
+      await persistSeriesCard(item,card,false)
+    }catch{}
+  });
   $("#refreshState").addEventListener("click",refreshState);
 
   clearOverlayButton.addEventListener("click",async()=>{

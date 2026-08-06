@@ -37,6 +37,7 @@ let lastChatAt = null;
 let lastCommand = null;
 let lastError = null;
 const sseClients = new Set();
+const seasonCache = new Map();
 
 function loadJson(file, fallback) {
   try {
@@ -96,6 +97,10 @@ function loadSeriesProgress() {
       cleaned[key] = {
         episode,
         season,
+        episodeCount: Math.max(
+          episode,
+          Math.floor(Number(progress.episodeCount || 0))
+        ),
         title: String(progress.title || ""),
         year: String(progress.year || ""),
         poster: String(progress.poster || ""),
@@ -156,6 +161,11 @@ function getSeriesProgress(item) {
   return {
     episode: Math.floor(Number(progress.episode)),
     season: Math.floor(Number(progress.season)),
+    episodeCount: Math.max(
+      Math.floor(Number(progress.episode)),
+      Math.floor(Number(progress.episodeCount || 0))
+    ),
+    poster: String(progress.poster || ""),
     suffix: `EP${Math.floor(Number(progress.episode))} - T${Math.floor(Number(progress.season))}`
   };
 }
@@ -180,6 +190,10 @@ function rememberSeriesProgress(item, episode, season) {
   seriesProgress[key] = {
     episode: normalizedEpisode,
     season: normalizedSeason,
+    episodeCount: Math.max(
+      normalizedEpisode,
+      Math.floor(Number(item.episodeCount || 0))
+    ),
     title: String(item.baseTitle || item.title || ""),
     year: String(item.year || ""),
     poster: String(item.poster || ""),
@@ -198,14 +212,20 @@ function decorateWithSeriesProgress(item) {
 
   const progress = getSeriesProgress(item);
 
-  return progress
-    ? {
-        ...item,
-        savedEpisode: progress.episode,
-        savedSeason: progress.season,
-        savedSuffix: progress.suffix
-      }
-    : item;
+  if (!progress) {
+    return item;
+  }
+
+  return {
+    ...item,
+    poster: progress.poster || item.poster,
+    selectedEpisode: progress.episode,
+    selectedSeason: progress.season,
+    episodeCount: progress.episodeCount || item.episodeCount || 0,
+    savedEpisode: progress.episode,
+    savedSeason: progress.season,
+    savedSuffix: progress.suffix
+  };
 }
 
 function commonHeaders(contentType = "application/json; charset=utf-8") {
@@ -526,6 +546,439 @@ async function mapLimit(items, limit, mapper) {
   return results;
 }
 
+function normalizeSeasonList(value, fallbackPoster = "") {
+  const source = Array.isArray(value) ? value : [];
+
+  return source
+    .map(season => {
+      const seasonNumber = Math.floor(
+        Number(
+          season.seasonNumber ??
+          season.season_number
+        )
+      );
+
+      const episodeCount = Math.max(
+        0,
+        Math.floor(
+          Number(
+            season.episodeCount ??
+            season.episode_count ??
+            0
+          )
+        )
+      );
+
+      const rawPoster =
+        season.poster ||
+        season.poster_path ||
+        "";
+
+      return {
+        seasonNumber,
+        name:
+          String(season.name || "").trim() ||
+          `Temporada ${seasonNumber}`,
+        episodeCount,
+        poster:
+          String(rawPoster).startsWith("http") ||
+          String(rawPoster).startsWith("data:")
+            ? String(rawPoster)
+            : imageUrl(rawPoster, "w342") || fallbackPoster
+      };
+    })
+    .filter(season => (
+      Number.isFinite(season.seasonNumber) &&
+      season.seasonNumber >= 1
+    ))
+    .sort((left, right) => (
+      left.seasonNumber - right.seasonNumber
+    ));
+}
+
+async function fetchSeriesDetails(tmdbId) {
+  const id = Number(tmdbId);
+
+  if (!Number.isFinite(id) || id < 1) {
+    throw new Error("ID da série inválido");
+  }
+
+  if (process.env.TMDB_MOCK === "1") {
+    return {
+      id,
+      poster_path: "",
+      seasons: [1, 2, 3, 4].map(number => ({
+        season_number: number,
+        name: `Temporada ${number}`,
+        episode_count: 8 + number,
+        poster_path: ""
+      }))
+    };
+  }
+
+  const url = new URL(
+    `https://api.themoviedb.org/3/tv/${id}`
+  );
+
+  url.searchParams.set("language", "pt-BR");
+
+  return fetchTmdbJson(url);
+}
+
+async function fetchSeasonDetails(
+  tmdbId,
+  seasonNumber,
+  fallbackItem = {}
+) {
+  const id = Number(tmdbId);
+  const season = Math.max(
+    1,
+    Math.floor(Number(seasonNumber) || 1)
+  );
+  const cacheKey = `${id}:${season}`;
+
+  if (seasonCache.has(cacheKey)) {
+    return seasonCache.get(cacheKey);
+  }
+
+  if (process.env.TMDB_MOCK === "1") {
+    const result = {
+      seasonNumber: season,
+      name: `Temporada ${season}`,
+      episodeCount: 8 + season,
+      poster: placeholderPoster(
+        `${fallbackItem.title || "Série"} — Temporada ${season}`,
+        "tv"
+      )
+    };
+
+    seasonCache.set(cacheKey, result);
+    return result;
+  }
+
+  const url = new URL(
+    `https://api.themoviedb.org/3/tv/${id}/season/${season}`
+  );
+
+  url.searchParams.set("language", "pt-BR");
+  url.searchParams.set("append_to_response", "images");
+
+  const details = await fetchTmdbJson(url);
+
+  let poster =
+    imageUrl(details.poster_path, "w342") ||
+    "";
+
+  if (!poster) {
+    const appendedPosters =
+      details.images &&
+      Array.isArray(details.images.posters)
+        ? details.images.posters
+        : [];
+
+    const appendedPoster = bestImage(appendedPosters);
+
+    if (appendedPoster) {
+      poster = imageUrl(
+        appendedPoster.file_path,
+        "w342"
+      );
+    }
+  }
+
+  if (!poster) {
+    try {
+      const imagesUrl = new URL(
+        `https://api.themoviedb.org/3/tv/${id}/season/${season}/images`
+      );
+
+      imagesUrl.searchParams.set(
+        "include_image_language",
+        "pt,en,null"
+      );
+
+      const images = await fetchTmdbJson(imagesUrl);
+      const image = bestImage(
+        Array.isArray(images.posters)
+          ? images.posters
+          : []
+      );
+
+      if (image) {
+        poster = imageUrl(image.file_path, "w342");
+      }
+    } catch (error) {
+      console.error(
+        `[capa-temporada] tv:${id}:T${season} - ${error.message}`
+      );
+    }
+  }
+
+  const fallbackPoster =
+    String(fallbackItem.seriesPoster || "") ||
+    String(fallbackItem.poster || "") ||
+    placeholderPoster(
+      `${fallbackItem.title || "Série"} — Temporada ${season}`,
+      "tv"
+    );
+
+  const result = {
+    seasonNumber: season,
+    name:
+      String(details.name || "").trim() ||
+      `Temporada ${season}`,
+    episodeCount: Math.max(
+      1,
+      Array.isArray(details.episodes)
+        ? details.episodes.length
+        : Number(details.episode_count || 0)
+    ),
+    poster: poster || fallbackPoster
+  };
+
+  seasonCache.set(cacheKey, result);
+  return result;
+}
+
+async function enrichSeriesItem(item) {
+  if (!validMediaItem(item) || item.type !== "tv") {
+    return item;
+  }
+
+  const progress = getSeriesProgress(item);
+  const existingSeriesPoster =
+    String(item.seriesPoster || "") ||
+    String(item.poster || "");
+
+  let seasons = normalizeSeasonList(
+    item.seasons,
+    existingSeriesPoster
+  );
+
+  let seriesPoster = existingSeriesPoster;
+
+  if (!seasons.length) {
+    try {
+      const details = await fetchSeriesDetails(item.tmdbId);
+
+      seriesPoster =
+        imageUrl(details.poster_path, "w342") ||
+        seriesPoster ||
+        placeholderPoster(item.title, "tv");
+
+      seasons = normalizeSeasonList(
+        details.seasons,
+        seriesPoster
+      );
+    } catch (error) {
+      console.error(
+        `[temporadas] tv:${item.tmdbId} - ${error.message}`
+      );
+    }
+  }
+
+  if (!seasons.length) {
+    seasons = [{
+      seasonNumber: Math.max(
+        1,
+        Number(progress?.season || item.selectedSeason || 1)
+      ),
+      name: `Temporada ${Math.max(
+        1,
+        Number(progress?.season || item.selectedSeason || 1)
+      )}`,
+      episodeCount: Math.max(
+        1,
+        Number(
+          progress?.episodeCount ||
+          item.episodeCount ||
+          progress?.episode ||
+          item.selectedEpisode ||
+          1
+        )
+      ),
+      poster:
+        String(progress?.poster || "") ||
+        String(item.poster || "") ||
+        placeholderPoster(item.title, "tv")
+    }];
+  }
+
+  const selectedSeason = Math.max(
+    1,
+    Math.floor(
+      Number(
+        progress?.season ||
+        item.selectedSeason ||
+        seasons[0].seasonNumber
+      )
+    )
+  );
+
+  let selected =
+    seasons.find(season => (
+      season.seasonNumber === selectedSeason
+    )) ||
+    seasons[0];
+
+  if (
+    !selected.poster ||
+    selected.episodeCount < 1
+  ) {
+    try {
+      const details = await fetchSeasonDetails(
+        item.tmdbId,
+        selected.seasonNumber,
+        {
+          ...item,
+          seriesPoster
+        }
+      );
+
+      selected = {
+        ...selected,
+        ...details
+      };
+
+      seasons = seasons.map(season => (
+        season.seasonNumber === selected.seasonNumber
+          ? selected
+          : season
+      ));
+    } catch (error) {
+      console.error(
+        `[temporada] tv:${item.tmdbId}:T${selected.seasonNumber} - ${error.message}`
+      );
+    }
+  }
+
+  const selectedEpisode = Math.max(
+    1,
+    Math.min(
+      Math.floor(
+        Number(
+          progress?.episode ||
+          item.selectedEpisode ||
+          1
+        )
+      ),
+      Math.max(
+        1,
+        Number(
+          selected.episodeCount ||
+          progress?.episodeCount ||
+          item.episodeCount ||
+          1
+        )
+      )
+    )
+  );
+
+  return decorateWithSeriesProgress({
+    ...item,
+    seriesPoster:
+      seriesPoster ||
+      String(item.poster || ""),
+    seasons,
+    selectedSeason: selected.seasonNumber,
+    selectedEpisode,
+    episodeCount: Math.max(
+      1,
+      Number(selected.episodeCount || 1)
+    ),
+    poster:
+      String(progress?.poster || "") ||
+      selected.poster ||
+      String(item.poster || "") ||
+      placeholderPoster(item.title, "tv")
+  });
+}
+
+async function applySeriesSelection(
+  item,
+  seasonNumber,
+  episodeNumber
+) {
+  const enriched = await enrichSeriesItem(item);
+
+  if (!validMediaItem(enriched) || enriched.type !== "tv") {
+    throw new Error("Série inválida");
+  }
+
+  const season = Math.max(
+    1,
+    Math.floor(
+      Number(
+        seasonNumber ||
+        enriched.selectedSeason ||
+        enriched.savedSeason ||
+        1
+      )
+    )
+  );
+
+  const details = await fetchSeasonDetails(
+    enriched.tmdbId,
+    season,
+    enriched
+  );
+
+  const episodeCount = Math.max(
+    1,
+    Number(details.episodeCount || 1)
+  );
+
+  const episode = Math.max(
+    1,
+    Math.min(
+      Math.floor(
+        Number(
+          episodeNumber ||
+          enriched.selectedEpisode ||
+          enriched.savedEpisode ||
+          1
+        )
+      ),
+      episodeCount
+    )
+  );
+
+  const seasons = normalizeSeasonList(
+    enriched.seasons,
+    enriched.seriesPoster || enriched.poster
+  );
+
+  const updatedSeasons = seasons.some(entry => (
+    entry.seasonNumber === season
+  ))
+    ? seasons.map(entry => (
+        entry.seasonNumber === season
+          ? {
+              ...entry,
+              ...details
+            }
+          : entry
+      ))
+    : [
+        ...seasons,
+        details
+      ].sort((left, right) => (
+        left.seasonNumber - right.seasonNumber
+      ));
+
+  return {
+    ...enriched,
+    seasons: updatedSeasons,
+    selectedSeason: season,
+    selectedEpisode: episode,
+    episodeCount,
+    poster:
+      details.poster ||
+      enriched.seriesPoster ||
+      enriched.poster
+  };
+}
+
 function scoreResult(item, type, wantedTitle, wantedYear) {
   const wanted = normalize(wantedTitle);
   const localized = normalize(titleOf(item, type));
@@ -640,6 +1093,14 @@ function updateOverlay(item, suffix = "", updatedBy = "painel") {
     displayTitle,
     episode: episodeMatch ? Number(episodeMatch[1]) : null,
     season: episodeMatch ? Number(episodeMatch[2]) : null,
+    episodeCount: Math.max(
+      Number(item.episodeCount || 0),
+      episodeMatch ? Number(episodeMatch[1]) : 0
+    ),
+    seasons: Array.isArray(item.seasons)
+      ? item.seasons
+      : [],
+    seriesPoster: String(item.seriesPoster || ""),
     suffix: extra,
     year: String(item.year || ""),
     typeLabel: item.typeLabel || typeLabel(item.type),
@@ -720,6 +1181,13 @@ function advanceEpisode(updatedBy = "chat") {
     year: String(currentState.year || ""),
     typeLabel: currentState.typeLabel || "Série",
     poster: String(currentState.poster || ""),
+    seriesPoster: String(currentState.seriesPoster || ""),
+    seasons: Array.isArray(currentState.seasons)
+      ? currentState.seasons
+      : [],
+    selectedSeason: currentSeason,
+    selectedEpisode: nextEpisode,
+    episodeCount: Number(currentState.episodeCount || 0),
     overview: String(currentState.overview || "")
   };
 
@@ -1002,8 +1470,14 @@ async function handleApi(request, response, url) {
   if (request.method === "GET" && url.pathname === "/api/saved") {
     const hydrated = await mapLimit(
       savedItems,
-      5,
-      item => hydrateMediaItem(item)
+      4,
+      async item => {
+        const hydratedItem = await hydrateMediaItem(item);
+
+        return hydratedItem.type === "tv"
+          ? enrichSeriesItem(hydratedItem)
+          : hydratedItem;
+      }
     );
 
     const changed = hydrated.some(
@@ -1026,8 +1500,16 @@ async function handleApi(request, response, url) {
   if (request.method === "POST" && url.pathname === "/api/saved") {
     try {
       const body = await readJson(request);
-      const item = await hydrateMediaItem(body.item);
-      if (!validMediaItem(item)) throw new Error("Título inválido");
+      let item = await hydrateMediaItem(body.item);
+
+      if (item?.type === "tv") {
+        item = await enrichSeriesItem(item);
+      }
+
+      if (!validMediaItem(item)) {
+        throw new Error("Título inválido");
+      }
+
       const key = `${item.type}:${item.tmdbId}`;
       savedItems = [
         { ...item, savedAt: new Date().toISOString() },
@@ -1040,6 +1522,103 @@ async function handleApi(request, response, url) {
       });
     } catch (error) {
       sendJson(response, 400, { ok: false, error: error.message });
+    }
+    return;
+  }
+
+  if (
+    request.method === "GET" &&
+    /^\/api\/tv\/\d+\/season\/\d+$/.test(url.pathname)
+  ) {
+    try {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const tmdbId = Number(parts[2]);
+      const seasonNumber = Number(parts[4]);
+      const saved = savedItems.find(item => (
+        item.type === "tv" &&
+        Number(item.tmdbId) === tmdbId
+      ));
+
+      const season = await fetchSeasonDetails(
+        tmdbId,
+        seasonNumber,
+        saved || {}
+      );
+
+      sendJson(response, 200, {
+        ok: true,
+        season
+      });
+    } catch (error) {
+      sendJson(response, 400, {
+        ok: false,
+        error: error.message
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    /^\/api\/saved\/tv\/\d+\/progress$/.test(url.pathname)
+  ) {
+    try {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const tmdbId = Number(parts[3]);
+      const body = await readJson(request);
+      const key = `tv:${tmdbId}`;
+
+      let item = savedItems.find(entry => (
+        entry.type === "tv" &&
+        Number(entry.tmdbId) === tmdbId
+      ));
+
+      if (!item && validMediaItem(body.item)) {
+        item = body.item;
+      }
+
+      if (!item) {
+        throw new Error("Série salva não encontrada");
+      }
+
+      const selected = await applySeriesSelection(
+        item,
+        body.season,
+        body.episode
+      );
+
+      rememberSeriesProgress(
+        selected,
+        selected.selectedEpisode,
+        selected.selectedSeason
+      );
+
+      savedItems = [
+        {
+          ...selected,
+          savedAt:
+            savedItems.find(entry => (
+              `${entry.type}:${entry.tmdbId}` === key
+            ))?.savedAt ||
+            new Date().toISOString()
+        },
+        ...savedItems.filter(entry => (
+          `${entry.type}:${entry.tmdbId}` !== key
+        ))
+      ].slice(0, 200);
+
+      saveSavedItems();
+
+      sendJson(response, 200, {
+        ok: true,
+        item: decorateWithSeriesProgress(savedItems[0]),
+        items: savedItems.map(decorateWithSeriesProgress)
+      });
+    } catch (error) {
+      sendJson(response, 400, {
+        ok: false,
+        error: error.message
+      });
     }
     return;
   }
@@ -1062,11 +1641,53 @@ async function handleApi(request, response, url) {
   if (request.method === "POST" && url.pathname === "/api/overlay") {
     try {
       const body = await readJson(request);
-      const item = await hydrateMediaItem(body.item);
-      const state = updateOverlay(item, body.suffix, "painel adm");
-      sendJson(response, 200, { ok: true, state });
+      let item = await hydrateMediaItem(body.item);
+      let suffix = cleanSuffix(body.suffix);
+
+      if (item?.type === "tv") {
+        const suffixMatch = suffix.match(
+          /^(?:EP|E)\s*0*(\d+)\s*[-–—]?\s*(?:T|TEMP|TEMPORADA)\s*0*(\d+)$/i
+        );
+
+        const episode =
+          Number(body.episode) ||
+          Number(suffixMatch?.[1]) ||
+          Number(item.selectedEpisode) ||
+          Number(item.savedEpisode) ||
+          1;
+
+        const season =
+          Number(body.season) ||
+          Number(suffixMatch?.[2]) ||
+          Number(item.selectedSeason) ||
+          Number(item.savedSeason) ||
+          1;
+
+        item = await applySeriesSelection(
+          item,
+          season,
+          episode
+        );
+
+        suffix =
+          `EP${item.selectedEpisode} - T${item.selectedSeason}`;
+      }
+
+      const state = updateOverlay(
+        item,
+        suffix,
+        "painel adm"
+      );
+
+      sendJson(response, 200, {
+        ok: true,
+        state
+      });
     } catch (error) {
-      sendJson(response, 400, { ok: false, error: error.message });
+      sendJson(response, 400, {
+        ok: false,
+        error: error.message
+      });
     }
     return;
   }
@@ -1141,8 +1762,27 @@ async function handleApi(request, response, url) {
           throw new Error("Use !ts seguido do nome da série");
         }
 
-        const item = await findBestMedia("tv", parsed.title, parsed.year || "");
-        const state = updateOverlay(item, parsed.suffix || "", username);
+        let item = await findBestMedia("tv", parsed.title, parsed.year || "");
+
+        const suffixMatch = String(parsed.suffix || "").match(
+          /^(?:EP|E)\s*0*(\d+)\s*[-–—]?\s*(?:T|TEMP|TEMPORADA)\s*0*(\d+)$/i
+        );
+
+        if (suffixMatch) {
+          item = await applySeriesSelection(
+            item,
+            Number(suffixMatch[2]),
+            Number(suffixMatch[1])
+          );
+        } else {
+          item = await enrichSeriesItem(item);
+        }
+
+        const suffix = suffixMatch
+          ? `EP${item.selectedEpisode} - T${item.selectedSeason}`
+          : parsed.suffix || "";
+
+        const state = updateOverlay(item, suffix, username);
 
         lastCommand = {
           command: "!ts",
@@ -1187,7 +1827,7 @@ async function handleApi(request, response, url) {
   sendJson(response, 404, { ok: false, error: "Rota da API não encontrada" });
 }
 
-function runSelfTest() {
+async function runSelfTest() {
   const first = parseSeries("Elite EP1 - T2");
   const second = parseSeries("The Office T2 - EP3");
 
@@ -1307,12 +1947,42 @@ function runSelfTest() {
     throw new Error("Falha ao excluir o conteúdo da overlay");
   }
 
-  console.log("[teste] Progresso separado por série, !d e !t validados");
+  const seasonSelection = await applySeriesSelection(
+    {
+      tmdbId: 1399,
+      type: "tv",
+      title: "Série Teste",
+      year: "2018",
+      typeLabel: "Série",
+      poster: placeholderPoster("Série Teste", "tv"),
+      overview: ""
+    },
+    3,
+    4
+  );
+
+  if (
+    seasonSelection.selectedSeason !== 3 ||
+    seasonSelection.selectedEpisode !== 4 ||
+    !seasonSelection.poster
+  ) {
+    throw new Error(
+      "Falha ao selecionar temporada, episódio e capa"
+    );
+  }
+
+  console.log(
+    "[teste] Temporadas, capas, episódios, progresso, !d e !t validados"
+  );
 }
 
 if (process.argv.includes("--self-test")) {
-  runSelfTest();
-  process.exit(0);
+  runSelfTest()
+    .then(() => process.exit(0))
+    .catch(error => {
+      console.error(error);
+      process.exit(1);
+    });
 }
 
 const server = http.createServer(async (request, response) => {

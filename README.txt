@@ -39,3 +39,10 @@ https://SEU-SERVICO.onrender.com/ping
 - conexão direta instável ao IRC da Twitch não inicia;
 - comandos continuam por `/api/command` via StreamElements;
 - nenhuma dependência externa é necessária para o servidor iniciar.
+
+
+CAPAS POR TEMPORADA:
+- series salvas mostram selecao de temporada e episodio;
+- mudar a temporada troca a capa;
+- episodio e temporada ficam salvos por serie;
+- Atualizar overlay usa a capa da temporada escolhida.

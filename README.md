@@ -39,3 +39,18 @@ https://SEU-SERVICO.onrender.com/ping
 - conexão direta instável ao IRC da Twitch não inicia;
 - comandos continuam por `/api/command` via StreamElements;
 - nenhuma dependência externa é necessária para o servidor iniciar.
+
+
+## Capas por temporada e controles nos títulos salvos
+
+Para séries salvas, cada card agora possui:
+
+- seletor de temporada;
+- seletor de episódio com setas;
+- quantidade de episódios da temporada;
+- capa correspondente à temporada escolhida.
+
+Ao trocar a temporada, o painel consulta a temporada no TMDB, troca a capa
+imediatamente e salva o progresso daquela série. Ao clicar em
+**Atualizar overlay**, a overlay recebe o episódio, a temporada e a mesma capa
+selecionada.
