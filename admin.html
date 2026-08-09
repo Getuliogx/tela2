@@ -15,6 +15,9 @@
 .series-card-stepper{display:grid;grid-template-columns:32px minmax(46px,1fr) 32px;gap:4px}
 .series-card-step{padding:6px 4px;border-radius:8px;background:#292936;color:#fff}
 .series-card-status{grid-column:1/-1;color:#a78bfa;font-size:11px;min-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.series-card-display{grid-column:1/-1;display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:9px;background:#111119;border:1px solid var(--line);cursor:pointer}
+.series-card-display input{width:16px;height:16px;margin:0;accent-color:var(--accent)}
+.series-card-display span{font-size:12px;font-weight:800;color:#ddd}
 .series-card-controls.loading{opacity:.58;pointer-events:none}
 .empty{color:var(--muted);padding:18px 0}.notice{position:fixed;right:18px;bottom:18px;max-width:360px;background:#171721;border:1px solid var(--line);border-radius:13px;padding:13px 15px;box-shadow:0 12px 40px rgba(0,0,0,.5);opacity:0;transform:translateY(10px);pointer-events:none;transition:.2s}.notice.show{opacity:1;transform:none}.notice.error{border-color:#6f2630;color:#ffb4bd}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.grow{flex:1;min-width:230px}.password{max-width:240px}.hint{color:var(--muted);font-size:13px;margin-top:10px}.spinner{display:none;margin-left:8px}.busy .spinner{display:inline}.section-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.section-actions{display:flex;gap:8px;flex-wrap:wrap}button:disabled{opacity:.45;cursor:not-allowed}
 .count{color:var(--muted);font-size:13px}
@@ -200,14 +203,29 @@
         </div>
       </label>
 
+      <label class="series-card-display">
+        <input type="checkbox" data-series-show-season ${item.showSeason===false?"":"checked"}>
+        <span>Mostrar T no título da overlay</span>
+      </label>
+
       <div class="series-card-status" data-series-status>
-        EP${selectedEpisode} - T${selectedSeason} • ${episodeCount} episódios
+        ${item.showSeason===false
+          ? `EP${selectedEpisode} • temporada ${selectedSeason} selecionada • ${episodeCount} episódios`
+          : `EP${selectedEpisode} - T${selectedSeason} • ${episodeCount} episódios`}
       </div>
     </div>`
   }
 
   function cardHtml(item,savedMode=false){
-    const progress=item.savedSuffix?` • ${escapeHtml(item.savedSuffix)}`:"";
+    const progress=item.savedSuffix
+      ? ` • ${escapeHtml(
+          item.type==="tv" &&
+          item.showSeason===false &&
+          item.savedEpisode
+            ? `EP${item.savedEpisode}`
+            : item.savedSuffix
+        )}`
+      : "";
 
     return `<article class="card" data-card-key="${escapeHtml(keyOf(item))}">
       ${posterHtml(item)}
@@ -433,7 +451,9 @@
           body:JSON.stringify({
             item,
             season,
-            episode
+            episode,
+            showSeason:
+              card.querySelector("[data-series-show-season]")?.checked !== false
           })
         }
       );
@@ -550,7 +570,7 @@
 
   savedEl.addEventListener("change",async event=>{
     const control=event.target.closest(
-      "[data-series-season],[data-series-episode]"
+      "[data-series-season],[data-series-episode],[data-series-show-season]"
     );
 
     if(!control)return;

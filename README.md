@@ -54,3 +54,23 @@ Ao trocar a temporada, o painel consulta a temporada no TMDB, troca a capa
 imediatamente e salva o progresso daquela série. Ao clicar em
 **Atualizar overlay**, a overlay recebe o episódio, a temporada e a mesma capa
 selecionada.
+
+
+## Esconder a temporada no título
+
+Cada série salva agora tem a opção **Mostrar T no título da overlay**.
+
+Marcada:
+
+```text
+Grey's Anatomy EP12 - T7
+```
+
+Desmarcada:
+
+```text
+Grey's Anatomy EP12
+```
+
+A temporada continua selecionada internamente para capa, progresso e quantidade
+de episódios. Só o `- T7` deixa de aparecer no título.

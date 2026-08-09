@@ -211,13 +211,28 @@ function decorateWithSeriesProgress(item) {
   }
 
   const progress = getSeriesProgress(item);
+  const saved = savedItems.find(entry => (
+    entry.type === "tv" &&
+    Number(entry.tmdbId) === Number(item.tmdbId)
+  ));
+
+  const showSeason =
+    typeof item.showSeason === "boolean"
+      ? item.showSeason
+      : typeof saved?.showSeason === "boolean"
+        ? saved.showSeason
+        : true;
 
   if (!progress) {
-    return item;
+    return {
+      ...item,
+      showSeason
+    };
   }
 
   return {
     ...item,
+    showSeason,
     poster: progress.poster || item.poster,
     selectedEpisode: progress.episode,
     selectedSeason: progress.season,
@@ -1081,7 +1096,21 @@ function updateOverlay(item, suffix = "", updatedBy = "painel") {
     }
   }
 
-  const displayTitle = extra ? `${item.title} ${extra}` : item.title;
+  const showSeason =
+    item.type === "tv"
+      ? item.showSeason !== false
+      : true;
+
+  const visibleExtra =
+    item.type === "tv" &&
+    episodeMatch &&
+    !showSeason
+      ? `EP${Number(episodeMatch[1])}`
+      : extra;
+
+  const displayTitle = visibleExtra
+    ? `${item.title} ${visibleExtra}`
+    : item.title;
 
   currentState = {
     revision: Date.now(),
@@ -1091,6 +1120,7 @@ function updateOverlay(item, suffix = "", updatedBy = "painel") {
     originalTitle: String(item.originalTitle || ""),
     title: displayTitle,
     displayTitle,
+    showSeason,
     episode: episodeMatch ? Number(episodeMatch[1]) : null,
     season: episodeMatch ? Number(episodeMatch[2]) : null,
     episodeCount: Math.max(
@@ -1188,6 +1218,7 @@ function advanceEpisode(updatedBy = "chat") {
     selectedSeason: currentSeason,
     selectedEpisode: nextEpisode,
     episodeCount: Number(currentState.episodeCount || 0),
+    showSeason: currentState.showSeason !== false,
     overview: String(currentState.overview || "")
   };
 
@@ -1581,11 +1612,21 @@ async function handleApi(request, response, url) {
         throw new Error("Série salva não encontrada");
       }
 
-      const selected = await applySeriesSelection(
+      let selected = await applySeriesSelection(
         item,
         body.season,
         body.episode
       );
+
+      selected = {
+        ...selected,
+        showSeason:
+          typeof body.showSeason === "boolean"
+            ? body.showSeason
+            : typeof item.showSeason === "boolean"
+              ? item.showSeason
+              : true
+      };
 
       rememberSeriesProgress(
         selected,
