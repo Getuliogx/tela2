@@ -74,3 +74,20 @@ Grey's Anatomy EP12
 
 A temporada continua selecionada internamente para capa, progresso e quantidade
 de episódios. Só o `- T7` deixa de aparecer no título.
+
+
+## Próximos conteúdos
+
+O painel `/admin` agora possui uma fila de próximos conteúdos.
+
+É possível:
+
+- adicionar vários filmes/séries;
+- remover itens;
+- personalizar o texto (`Próximo`, `Depois`, etc.);
+- escolher o intervalo em minutos;
+- escolher por quantos segundos cada item aparece;
+- usar **Mostrar agora** para testar sem esperar o intervalo.
+
+Exemplo: intervalo de 50 minutos, exibição de 10 segundos e três itens.
+A cada 50 minutos, os três aparecem em sequência por 10 segundos cada.

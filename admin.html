@@ -18,6 +18,21 @@
 .series-card-display{grid-column:1/-1;display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:9px;background:#111119;border:1px solid var(--line);cursor:pointer}
 .series-card-display input{width:16px;height:16px;margin:0;accent-color:var(--accent)}
 .series-card-display span{font-size:12px;font-weight:800;color:#ddd}
+.upnext-settings{display:grid;grid-template-columns:minmax(180px,1fr) 150px 150px;gap:10px;align-items:end}
+.upnext-setting{display:flex;flex-direction:column;gap:6px}
+.upnext-setting span{color:var(--muted);font-size:12px;font-weight:800}
+.upnext-toggle{display:flex;align-items:center;gap:8px;margin-top:12px;color:#ddd;font-size:13px;font-weight:800}
+.upnext-toggle input{width:17px;height:17px;accent-color:var(--accent)}
+.upnext-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.upnext-queue{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin-top:15px}
+.upnext-item{display:flex;gap:10px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:13px;padding:10px;min-width:0}
+.upnext-item img{width:52px;height:76px;object-fit:cover;border-radius:7px;background:#222;flex:0 0 auto}
+.upnext-item-copy{min-width:0;flex:1}
+.upnext-item-title{font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.upnext-item-meta{margin-top:4px;color:var(--muted);font-size:12px}
+.upnext-item-remove{margin-top:8px}
+.upnext-empty{padding:20px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);text-align:center}
+@media(max-width:760px){.upnext-settings{grid-template-columns:1fr}}
 .series-card-controls.loading{opacity:.58;pointer-events:none}
 .empty{color:var(--muted);padding:18px 0}.notice{position:fixed;right:18px;bottom:18px;max-width:360px;background:#171721;border:1px solid var(--line);border-radius:13px;padding:13px 15px;box-shadow:0 12px 40px rgba(0,0,0,.5);opacity:0;transform:translateY(10px);pointer-events:none;transition:.2s}.notice.show{opacity:1;transform:none}.notice.error{border-color:#6f2630;color:#ffb4bd}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.grow{flex:1;min-width:230px}.password{max-width:240px}.hint{color:var(--muted);font-size:13px;margin-top:10px}.spinner{display:none;margin-left:8px}.busy .spinner{display:inline}.section-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.section-actions{display:flex;gap:8px;flex-wrap:wrap}button:disabled{opacity:.45;cursor:not-allowed}
 .count{color:var(--muted);font-size:13px}
@@ -102,6 +117,46 @@
     <div class="section-head"><h2>Títulos salvos</h2><span id="savedCount" class="count">0 salvos</span></div>
     <div id="saved" class="saved"><div class="empty">Nenhum título salvo.</div></div>
   </section>
+
+  <section class="panel">
+    <div class="section-head">
+      <h2>Próximos conteúdos</h2>
+      <span id="upnextCount" class="count">0 itens</span>
+    </div>
+
+    <div class="upnext-settings">
+      <label class="upnext-setting">
+        <span>Texto do card</span>
+        <input id="upnextLabel" class="field" maxlength="40" value="Próximo" placeholder="Ex.: Próximo, Depois">
+      </label>
+
+      <label class="upnext-setting">
+        <span>Aparecer a cada (minutos)</span>
+        <input id="upnextInterval" class="field" type="number" min="1" max="1440" step="1" value="50">
+      </label>
+
+      <label class="upnext-setting">
+        <span>Exibir cada item por (segundos)</span>
+        <input id="upnextDuration" class="field" type="number" min="1" max="300" step="1" value="10">
+      </label>
+    </div>
+
+    <label class="upnext-toggle">
+      <input id="upnextEnabled" type="checkbox" checked>
+      <span>Ativar exibição automática</span>
+    </label>
+
+    <div class="upnext-actions">
+      <button id="saveUpnext" class="primary" type="button">Salvar configurações</button>
+      <button id="testUpnext" class="secondary" type="button">Mostrar agora</button>
+    </div>
+
+    <div class="hint">Exemplo: com 3 conteúdos, intervalo de 50 min e 10 s, a cada 50 minutos eles aparecem um após o outro por 10 segundos cada.</div>
+
+    <div id="upnextQueue" class="upnext-queue">
+      <div class="upnext-empty">Nenhum próximo conteúdo adicionado.</div>
+    </div>
+  </section>
 </div>
 <div id="notice" class="notice"></div>
 <script>
@@ -120,8 +175,17 @@
   const episodeEl = $("#episode");
   const seasonEl = $("#season");
   const episodeAutoStatusEl = $("#episodeAutoStatus");
+  const upnextQueueEl = $("#upnextQueue");
+  const upnextCountEl = $("#upnextCount");
+  const upnextLabelEl = $("#upnextLabel");
+  const upnextIntervalEl = $("#upnextInterval");
+  const upnextDurationEl = $("#upnextDuration");
+  const upnextEnabledEl = $("#upnextEnabled");
+  const saveUpnextButton = $("#saveUpnext");
+  const testUpnextButton = $("#testUpnext");
 
   let saved = loadLocal();
+  let upnext = null;
   let currentOverlayItem = null;
   let episodeTimer = null;
   let episodeRequestSequence = 0;
@@ -235,6 +299,7 @@
         ${seriesControlsHtml(item,savedMode)}
         <div class="card-actions">
           <button class="primary small" data-action="update" data-key="${escapeHtml(keyOf(item))}">Atualizar overlay</button>
+          <button class="secondary small" data-action="upnext-add" data-key="${escapeHtml(keyOf(item))}">Adicionar aos próximos</button>
           ${savedMode
             ? `<button class="danger small" data-action="remove" data-key="${escapeHtml(keyOf(item))}">Excluir</button>`
             : `<button class="secondary small" data-action="save" data-key="${escapeHtml(keyOf(item))}">Salvar</button>`}
@@ -242,6 +307,104 @@
       </div>
     </article>`
   }
+  function upnextDisplayTitle(item){
+    if(item.type!=="tv"||!Number(item.savedEpisode||item.selectedEpisode)){
+      return item.title
+    }
+
+    const episode=Number(item.savedEpisode||item.selectedEpisode);
+    const season=Number(item.savedSeason||item.selectedSeason);
+
+    return item.showSeason===false||!season
+      ? `${item.title} EP${episode}`
+      : `${item.title} EP${episode} - T${season}`
+  }
+
+  function renderUpnext(value){
+    upnext=value||{
+      enabled:true,
+      label:"Próximo",
+      intervalMinutes:50,
+      displaySeconds:10,
+      items:[]
+    };
+
+    upnextLabelEl.value=upnext.label||"Próximo";
+    upnextIntervalEl.value=String(upnext.intervalMinutes||50);
+    upnextDurationEl.value=String(upnext.displaySeconds||10);
+    upnextEnabledEl.checked=upnext.enabled!==false;
+
+    const items=Array.isArray(upnext.items)?upnext.items:[];
+    upnextCountEl.textContent=items.length+" item"+(items.length===1?"":"s");
+
+    upnextQueueEl.innerHTML=items.length
+      ? items.map(item=>`
+          <article class="upnext-item">
+            ${item.poster
+              ? `<img src="${escapeHtml(item.poster)}" alt="">`
+              : `<div class="poster-frame"><div class="poster-fallback">${escapeHtml(item.title)}</div></div>`}
+            <div class="upnext-item-copy">
+              <div class="upnext-item-title" title="${escapeHtml(upnextDisplayTitle(item))}">${escapeHtml(upnextDisplayTitle(item))}</div>
+              <div class="upnext-item-meta">${escapeHtml(item.typeLabel||"")}${item.year?" • "+escapeHtml(item.year):""}</div>
+              <button class="danger small upnext-item-remove" data-upnext-remove data-type="${escapeHtml(item.type)}" data-id="${escapeHtml(item.tmdbId)}">Remover</button>
+            </div>
+          </article>
+        `).join("")
+      : `<div class="upnext-empty">Nenhum próximo conteúdo adicionado.</div>`
+  }
+
+  async function loadUpnext(){
+    try{
+      const payload=await api("/api/upnext");
+      renderUpnext(payload.upnext)
+    }catch(error){
+      notify(error.message,true)
+    }
+  }
+
+  async function saveUpnextConfig(){
+    const label=upnextLabelEl.value.trim()||"Próximo";
+    const intervalMinutes=Math.max(1,Number(upnextIntervalEl.value||50));
+    const displaySeconds=Math.max(1,Number(upnextDurationEl.value||10));
+
+    saveUpnextButton.disabled=true;
+
+    try{
+      const payload=await api("/api/upnext/config",{
+        method:"POST",
+        body:JSON.stringify({
+          label,
+          intervalMinutes,
+          displaySeconds,
+          enabled:upnextEnabledEl.checked
+        })
+      });
+
+      renderUpnext(payload.upnext);
+      notify("Configuração dos próximos salva")
+    }catch(error){
+      notify(error.message,true)
+    }finally{
+      saveUpnextButton.disabled=false
+    }
+  }
+
+  async function addUpnext(item,source,card){
+    let finalItem=item;
+
+    if(source==="saved"&&item.type==="tv"){
+      finalItem=await persistSeriesCard(item,card,false)
+    }
+
+    const payload=await api("/api/upnext/items",{
+      method:"POST",
+      body:JSON.stringify({item:finalItem})
+    });
+
+    renderUpnext(payload.upnext);
+    notify("Adicionado aos próximos: "+upnextDisplayTitle(finalItem))
+  }
+
   function renderResults(items){window.__searchResults=items;resultsEl.innerHTML=items.length?items.map(item=>cardHtml(item,false)).join(""):`<div class="empty">Nenhum resultado encontrado.</div>`}
   function renderSaved(){window.__savedItems=saved;savedEl.innerHTML=saved.length?saved.map(item=>cardHtml(item,true)).join(""):`<div class="empty">Nenhum título salvo.</div>`;$("#savedCount").textContent=saved.length+" salvo"+(saved.length===1?"":"s")}
   function stripEpisodeSuffix(value){
@@ -537,6 +700,10 @@
         await removeItem(item)
       }
 
+      if(action==="upnext-add"){
+        await addUpnext(item,source,card)
+      }
+
       if(
         action==="series-episode-up"||
         action==="series-episode-down"
@@ -588,6 +755,45 @@
   });
   $("#refreshState").addEventListener("click",refreshState);
 
+  saveUpnextButton.addEventListener("click",saveUpnextConfig);
+
+  testUpnextButton.addEventListener("click",async()=>{
+    testUpnextButton.disabled=true;
+
+    try{
+      const payload=await api("/api/upnext/trigger",{
+        method:"POST"
+      });
+
+      renderUpnext(payload.upnext);
+      notify("Próximos conteúdos enviados para teste")
+    }catch(error){
+      notify(error.message,true)
+    }finally{
+      testUpnextButton.disabled=false
+    }
+  });
+
+  upnextQueueEl.addEventListener("click",async event=>{
+    const button=event.target.closest("[data-upnext-remove]");
+    if(!button)return;
+
+    button.disabled=true;
+
+    try{
+      const payload=await api(
+        `/api/upnext/items/${encodeURIComponent(button.dataset.type)}/${encodeURIComponent(button.dataset.id)}`,
+        {method:"DELETE"}
+      );
+
+      renderUpnext(payload.upnext);
+      notify("Próximo conteúdo removido")
+    }catch(error){
+      button.disabled=false;
+      notify(error.message,true)
+    }
+  });
+
   clearOverlayButton.addEventListener("click",async()=>{
     if(clearOverlayButton.disabled)return;
 
@@ -605,7 +811,7 @@
     }
   });
 
-  renderSaved();refreshState();loadServerSaved();setInterval(refreshState,5000);
+  renderSaved();refreshState();loadServerSaved();loadUpnext();setInterval(refreshState,5000);
 })();
 </script>
 </body>

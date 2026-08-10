@@ -23,10 +23,12 @@ const TMDB_API_KEY = String(
 const STATE_FILE = path.join(__dirname, "state.json");
 const SAVED_FILE = path.join(__dirname, "saved.json");
 const PROGRESS_FILE = path.join(__dirname, "series-progress.json");
+const UPNEXT_FILE = path.join(__dirname, "upnext.json");
 
 let currentState = loadState();
 let savedItems = loadSavedItems();
 let seriesProgress = loadSeriesProgress();
+let upNext = loadUpNext();
 let ircSocket = null;
 let ircBuffer = "";
 let ircNickname = "";
@@ -110,6 +112,129 @@ function loadSeriesProgress() {
   }
 
   return cleaned;
+}
+
+function cleanUpNextLabel(value) {
+  return String(value || "")
+    .replace(/[<>\r\n]/g, "")
+    .trim()
+    .slice(0, 40) || "Próximo";
+}
+
+function defaultUpNext() {
+  const now = Date.now();
+
+  return {
+    enabled: true,
+    label: "Próximo",
+    intervalMinutes: 50,
+    displaySeconds: 10,
+    items: [],
+    anchorAt: now,
+    triggerAt: 0,
+    revision: now
+  };
+}
+
+function upNextItemKey(item) {
+  return item &&
+    (item.type === "movie" || item.type === "tv") &&
+    Number(item.tmdbId) > 0
+      ? `${item.type}:${Number(item.tmdbId)}`
+      : "";
+}
+
+function cleanUpNextItem(item) {
+  if (!validMediaItem(item)) {
+    return null;
+  }
+
+  return {
+    type: item.type,
+    tmdbId: Number(item.tmdbId),
+    title: String(item.title || ""),
+    originalTitle: String(item.originalTitle || ""),
+    year: String(item.year || ""),
+    typeLabel: String(
+      item.typeLabel ||
+      (item.type === "tv" ? "Série" : "Filme")
+    ),
+    poster: String(item.poster || ""),
+    seriesPoster: String(item.seriesPoster || ""),
+    overview: String(item.overview || ""),
+    selectedSeason: Number(item.selectedSeason || item.savedSeason || 0) || null,
+    selectedEpisode: Number(item.selectedEpisode || item.savedEpisode || 0) || null,
+    savedSeason: Number(item.savedSeason || item.selectedSeason || 0) || null,
+    savedEpisode: Number(item.savedEpisode || item.selectedEpisode || 0) || null,
+    episodeCount: Number(item.episodeCount || 0) || 0,
+    showSeason: item.showSeason !== false,
+    seasons: Array.isArray(item.seasons) ? item.seasons : []
+  };
+}
+
+function sanitizeUpNext(value) {
+  const fallback = defaultUpNext();
+  const source =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? value
+      : {};
+
+  const items = Array.isArray(source.items)
+    ? source.items
+        .map(cleanUpNextItem)
+        .filter(Boolean)
+        .slice(0, 50)
+    : [];
+
+  return {
+    enabled: source.enabled !== false,
+    label: cleanUpNextLabel(source.label || fallback.label),
+    intervalMinutes: Math.max(
+      1,
+      Math.min(1440, Number(source.intervalMinutes || fallback.intervalMinutes))
+    ),
+    displaySeconds: Math.max(
+      1,
+      Math.min(300, Number(source.displaySeconds || fallback.displaySeconds))
+    ),
+    items,
+    anchorAt:
+      Number(source.anchorAt) > 0
+        ? Number(source.anchorAt)
+        : fallback.anchorAt,
+    triggerAt: Math.max(0, Number(source.triggerAt || 0)),
+    revision:
+      Number(source.revision) > 0
+        ? Number(source.revision)
+        : fallback.revision
+  };
+}
+
+function loadUpNext() {
+  return sanitizeUpNext(
+    loadJson(UPNEXT_FILE, defaultUpNext())
+  );
+}
+
+function saveUpNext() {
+  upNext = sanitizeUpNext(upNext);
+  writeJson(UPNEXT_FILE, upNext);
+  return upNext;
+}
+
+function touchUpNext(resetTimer = false) {
+  const now = Date.now();
+
+  upNext.revision = now;
+
+  if (resetTimer) {
+    upNext.anchorAt = now;
+  }
+
+  saveUpNext();
+  broadcastUpNext();
+
+  return upNext;
 }
 
 function validMediaItem(value) {
@@ -322,6 +447,17 @@ function broadcastState() {
   for (const response of [...sseClients]) {
     try {
       sendSse(response, "state", currentState);
+    sendSse(response, "upnext", upNext);
+    } catch {
+      sseClients.delete(response);
+    }
+  }
+}
+
+function broadcastUpNext() {
+  for (const response of [...sseClients]) {
+    try {
+      sendSse(response, "upnext", upNext);
     } catch {
       sseClients.delete(response);
     }
@@ -1478,6 +1614,139 @@ const ADMIN_HTML = fs.readFileSync(path.join(__dirname, "admin.html"), "utf8");
 async function handleApi(request, response, url) {
   if (!requireAdmin(request, response)) return;
 
+  if (request.method === "GET" && url.pathname === "/api/upnext") {
+    sendJson(response, 200, {
+      ok: true,
+      upnext: upNext
+    });
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/upnext/config") {
+    try {
+      const body = await readJson(request);
+
+      upNext.enabled =
+        typeof body.enabled === "boolean"
+          ? body.enabled
+          : upNext.enabled;
+
+      upNext.label = cleanUpNextLabel(
+        body.label ?? upNext.label
+      );
+
+      upNext.intervalMinutes = Math.max(
+        1,
+        Math.min(
+          1440,
+          Number(
+            body.intervalMinutes ??
+            upNext.intervalMinutes
+          )
+        )
+      );
+
+      upNext.displaySeconds = Math.max(
+        1,
+        Math.min(
+          300,
+          Number(
+            body.displaySeconds ??
+            upNext.displaySeconds
+          )
+        )
+      );
+
+      touchUpNext(true);
+
+      sendJson(response, 200, {
+        ok: true,
+        upnext: upNext
+      });
+    } catch (error) {
+      sendJson(response, 400, {
+        ok: false,
+        error: error.message
+      });
+    }
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/upnext/items") {
+    try {
+      const body = await readJson(request);
+      let item = await hydrateMediaItem(body.item);
+
+      if (item?.type === "tv") {
+        item = await enrichSeriesItem(item);
+      }
+
+      item = decorateWithSeriesProgress(item);
+
+      const cleanItem = cleanUpNextItem(item);
+
+      if (!cleanItem) {
+        throw new Error("Conteúdo inválido");
+      }
+
+      const key = upNextItemKey(cleanItem);
+      const wasEmpty = upNext.items.length === 0;
+
+      upNext.items = [
+        ...upNext.items.filter(entry => (
+          upNextItemKey(entry) !== key
+        )),
+        cleanItem
+      ].slice(0, 50);
+
+      touchUpNext(wasEmpty);
+
+      sendJson(response, 200, {
+        ok: true,
+        upnext: upNext
+      });
+    } catch (error) {
+      sendJson(response, 400, {
+        ok: false,
+        error: error.message
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === "DELETE" &&
+    /^\/api\/upnext\/items\/(movie|tv)\/\d+$/.test(url.pathname)
+  ) {
+    const parts = url.pathname.split("/").filter(Boolean);
+    const type = parts[3];
+    const tmdbId = Number(parts[4]);
+    const key = `${type}:${tmdbId}`;
+
+    upNext.items = upNext.items.filter(item => (
+      upNextItemKey(item) !== key
+    ));
+
+    touchUpNext(false);
+
+    sendJson(response, 200, {
+      ok: true,
+      upnext: upNext
+    });
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/upnext/trigger") {
+    upNext.triggerAt = Date.now();
+    touchUpNext(false);
+
+    sendJson(response, 200, {
+      ok: true,
+      upnext: upNext
+    });
+    return;
+  }
+
   if (request.method === "GET" && url.pathname === "/api/search") {
     const type = url.searchParams.get("type") === "tv" ? "tv" : "movie";
     const query = String(url.searchParams.get("q") || "").trim();
@@ -2076,6 +2345,8 @@ const server = http.createServer(async (request, response) => {
       twitchJoined: false,
       hasContent: Boolean(currentState),
       savedCount: savedItems.length,
+      upNextCount: upNext.items.length,
+      upNextEnabled: upNext.enabled,
       connectedWidgets: sseClients.size,
       lastChatAt,
       lastCommand,
@@ -2097,6 +2368,11 @@ const server = http.createServer(async (request, response) => {
 
   if (request.method === "GET" && url.pathname === "/state") {
     sendJson(response, 200, currentState);
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/upnext") {
+    sendJson(response, 200, upNext);
     return;
   }
 
