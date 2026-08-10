@@ -91,3 +91,22 @@ O painel `/admin` agora possui uma fila de próximos conteúdos.
 
 Exemplo: intervalo de 50 minutos, exibição de 10 segundos e três itens.
 A cada 50 minutos, os três aparecem em sequência por 10 segundos cada.
+
+
+## Correção do Próximo conteúdo
+
+A lógica de tempo foi movida para o servidor.
+
+O widget não tenta mais calcular sozinho quando deve aparecer. Ele consulta:
+
+```text
+/upnext/current
+```
+
+a cada segundo. Assim:
+
+- **Mostrar agora** funciona diretamente pelo `triggerAt` do servidor;
+- a exibição automática é calculada pelo relógio do servidor;
+- vários itens são trocados automaticamente pelo tempo de exibição;
+- não depende de o timer JavaScript do StreamElements continuar perfeitamente
+  sincronizado por 50 minutos.

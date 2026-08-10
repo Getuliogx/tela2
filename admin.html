@@ -32,6 +32,7 @@
 .upnext-item-meta{margin-top:4px;color:var(--muted);font-size:12px}
 .upnext-item-remove{margin-top:8px}
 .upnext-empty{padding:20px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);text-align:center}
+.upnext-runtime-status{margin-top:10px;color:#a78bfa;font-size:12px;min-height:18px;font-weight:750}
 @media(max-width:760px){.upnext-settings{grid-template-columns:1fr}}
 .series-card-controls.loading{opacity:.58;pointer-events:none}
 .empty{color:var(--muted);padding:18px 0}.notice{position:fixed;right:18px;bottom:18px;max-width:360px;background:#171721;border:1px solid var(--line);border-radius:13px;padding:13px 15px;box-shadow:0 12px 40px rgba(0,0,0,.5);opacity:0;transform:translateY(10px);pointer-events:none;transition:.2s}.notice.show{opacity:1;transform:none}.notice.error{border-color:#6f2630;color:#ffb4bd}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.grow{flex:1;min-width:230px}.password{max-width:240px}.hint{color:var(--muted);font-size:13px;margin-top:10px}.spinner{display:none;margin-left:8px}.busy .spinner{display:inline}.section-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.section-actions{display:flex;gap:8px;flex-wrap:wrap}button:disabled{opacity:.45;cursor:not-allowed}
@@ -151,6 +152,7 @@
       <button id="testUpnext" class="secondary" type="button">Mostrar agora</button>
     </div>
 
+    <div id="upnextRuntimeStatus" class="upnext-runtime-status"></div>
     <div class="hint">Exemplo: com 3 conteúdos, intervalo de 50 min e 10 s, a cada 50 minutos eles aparecem um após o outro por 10 segundos cada.</div>
 
     <div id="upnextQueue" class="upnext-queue">
@@ -183,6 +185,7 @@
   const upnextEnabledEl = $("#upnextEnabled");
   const saveUpnextButton = $("#saveUpnext");
   const testUpnextButton = $("#testUpnext");
+  const upnextRuntimeStatusEl = $("#upnextRuntimeStatus");
 
   let saved = loadLocal();
   let upnext = null;
@@ -320,6 +323,42 @@
       : `${item.title} EP${episode} - T${season}`
   }
 
+  function formatClock(timestamp){
+    const value=Number(timestamp||0);
+    if(!value)return "";
+    return new Date(value).toLocaleTimeString("pt-BR",{
+      hour:"2-digit",
+      minute:"2-digit",
+      second:"2-digit"
+    })
+  }
+
+  async function refreshUpnextRuntime(){
+    try{
+      const response=await fetch(
+        "/upnext/current?t="+Date.now(),
+        {cache:"no-store"}
+      );
+
+      if(!response.ok)return;
+
+      const current=await response.json();
+
+      if(current.active){
+        upnextRuntimeStatusEl.textContent=
+          `Exibindo agora: ${current.index+1}/${current.total} • termina ${formatClock(current.endsAt)}`
+      }else if(current.nextAutomaticAt){
+        upnextRuntimeStatusEl.textContent=
+          `Próxima exibição automática: ${formatClock(current.nextAutomaticAt)}`
+      }else{
+        upnextRuntimeStatusEl.textContent=
+          current.reason==="empty"
+            ?"Adicione pelo menos um próximo conteúdo."
+            :"Exibição automática desativada."
+      }
+    }catch{}
+  }
+
   function renderUpnext(value){
     upnext=value||{
       enabled:true,
@@ -336,6 +375,7 @@
 
     const items=Array.isArray(upnext.items)?upnext.items:[];
     upnextCountEl.textContent=items.length+" item"+(items.length===1?"":"s");
+    testUpnextButton.disabled=items.length===0;
 
     upnextQueueEl.innerHTML=items.length
       ? items.map(item=>`
@@ -381,6 +421,7 @@
       });
 
       renderUpnext(payload.upnext);
+      await refreshUpnextRuntime();
       notify("Configuração dos próximos salva")
     }catch(error){
       notify(error.message,true)
@@ -758,6 +799,11 @@
   saveUpnextButton.addEventListener("click",saveUpnextConfig);
 
   testUpnextButton.addEventListener("click",async()=>{
+    if(!Array.isArray(upnext?.items)||!upnext.items.length){
+      upnextRuntimeStatusEl.textContent="Adicione pelo menos um próximo conteúdo.";
+      return
+    }
+
     testUpnextButton.disabled=true;
 
     try{
@@ -766,11 +812,14 @@
       });
 
       renderUpnext(payload.upnext);
-      notify("Próximos conteúdos enviados para teste")
+      await refreshUpnextRuntime();
+      notify("Mostrando próximos conteúdos agora")
     }catch(error){
       notify(error.message,true)
     }finally{
-      testUpnextButton.disabled=false
+      testUpnextButton.disabled=
+        !Array.isArray(upnext?.items)||
+        upnext.items.length===0
     }
   });
 
@@ -811,7 +860,7 @@
     }
   });
 
-  renderSaved();refreshState();loadServerSaved();loadUpnext();setInterval(refreshState,5000);
+  renderSaved();refreshState();loadServerSaved();loadUpnext();refreshUpnextRuntime();setInterval(refreshState,5000);setInterval(refreshUpnextRuntime,2000);
 })();
 </script>
 </body>

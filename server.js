@@ -237,6 +237,153 @@ function touchUpNext(resetTimer = false) {
   return upNext;
 }
 
+function currentUpNextView(now = Date.now()) {
+  const items = Array.isArray(upNext.items)
+    ? upNext.items
+    : [];
+
+  const displayMs = Math.max(
+    1000,
+    Number(upNext.displaySeconds || 10) * 1000
+  );
+
+  const totalWindow = items.length * displayMs;
+
+  if (!items.length || totalWindow <= 0) {
+    return {
+      active: false,
+      reason: "empty",
+      label: upNext.label,
+      item: null,
+      index: -1,
+      total: items.length,
+      runKey: "",
+      endsAt: 0,
+      nextAutomaticAt: upNext.enabled !== false
+        ? Number(upNext.anchorAt || now) +
+          Math.max(
+            60000,
+            Number(upNext.intervalMinutes || 50) * 60000
+          )
+        : 0
+    };
+  }
+
+  /*
+    Mostrar agora tem prioridade sobre o automático.
+    triggerAt marca o começo exato da sequência manual.
+  */
+  const triggerAt = Number(upNext.triggerAt || 0);
+
+  if (triggerAt > 0) {
+    const manualElapsed = now - triggerAt;
+
+    if (
+      manualElapsed >= 0 &&
+      manualElapsed < totalWindow
+    ) {
+      const index = Math.min(
+        items.length - 1,
+        Math.floor(manualElapsed / displayMs)
+      );
+
+      return {
+        active: true,
+        mode: "manual",
+        label: upNext.label,
+        item: items[index],
+        index,
+        total: items.length,
+        runKey: `manual:${triggerAt}:${index}`,
+        startedAt: triggerAt + index * displayMs,
+        endsAt: triggerAt + (index + 1) * displayMs,
+        nextAutomaticAt: 0
+      };
+    }
+  }
+
+  if (upNext.enabled === false) {
+    return {
+      active: false,
+      reason: "disabled",
+      label: upNext.label,
+      item: null,
+      index: -1,
+      total: items.length,
+      runKey: "",
+      endsAt: 0,
+      nextAutomaticAt: 0
+    };
+  }
+
+  const intervalMs = Math.max(
+    60000,
+    Number(upNext.intervalMinutes || 50) * 60000
+  );
+
+  const anchorAt = Number(upNext.anchorAt || now);
+  const firstAutomaticAt = anchorAt + intervalMs;
+
+  if (now < firstAutomaticAt) {
+    return {
+      active: false,
+      reason: "waiting",
+      label: upNext.label,
+      item: null,
+      index: -1,
+      total: items.length,
+      runKey: "",
+      endsAt: 0,
+      nextAutomaticAt: firstAutomaticAt
+    };
+  }
+
+  const cycle = Math.floor(
+    (now - firstAutomaticAt) / intervalMs
+  );
+
+  const cycleStart =
+    firstAutomaticAt + cycle * intervalMs;
+
+  const elapsed = now - cycleStart;
+  const nextAutomaticAt = cycleStart + intervalMs;
+
+  if (
+    elapsed < 0 ||
+    elapsed >= totalWindow
+  ) {
+    return {
+      active: false,
+      reason: "between-runs",
+      label: upNext.label,
+      item: null,
+      index: -1,
+      total: items.length,
+      runKey: "",
+      endsAt: 0,
+      nextAutomaticAt
+    };
+  }
+
+  const index = Math.min(
+    items.length - 1,
+    Math.floor(elapsed / displayMs)
+  );
+
+  return {
+    active: true,
+    mode: "automatic",
+    label: upNext.label,
+    item: items[index],
+    index,
+    total: items.length,
+    runKey: `auto:${cycleStart}:${index}`,
+    startedAt: cycleStart + index * displayMs,
+    endsAt: cycleStart + (index + 1) * displayMs,
+    nextAutomaticAt
+  };
+}
+
 function validMediaItem(value) {
   return Boolean(
     value &&
@@ -1736,12 +1883,23 @@ async function handleApi(request, response, url) {
   }
 
   if (request.method === "POST" && url.pathname === "/api/upnext/trigger") {
+    if (!Array.isArray(upNext.items) || !upNext.items.length) {
+      sendJson(response, 200, {
+        ok: true,
+        upnext: upNext,
+        current: currentUpNextView(),
+        message: "Nenhum próximo conteúdo adicionado"
+      });
+      return;
+    }
+
     upNext.triggerAt = Date.now();
     touchUpNext(false);
 
     sendJson(response, 200, {
       ok: true,
-      upnext: upNext
+      upnext: upNext,
+      current: currentUpNextView()
     });
     return;
   }
@@ -2346,6 +2504,7 @@ const server = http.createServer(async (request, response) => {
       savedCount: savedItems.length,
       upNextCount: upNext.items.length,
       upNextEnabled: upNext.enabled,
+      upNextCurrent: currentUpNextView(),
       connectedWidgets: sseClients.size,
       lastChatAt,
       lastCommand,
@@ -2372,6 +2531,11 @@ const server = http.createServer(async (request, response) => {
 
   if (request.method === "GET" && url.pathname === "/upnext") {
     sendJson(response, 200, upNext);
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/upnext/current") {
+    sendJson(response, 200, currentUpNextView());
     return;
   }
 
