@@ -447,7 +447,6 @@ function broadcastState() {
   for (const response of [...sseClients]) {
     try {
       sendSse(response, "state", currentState);
-    sendSse(response, "upnext", upNext);
     } catch {
       sseClients.delete(response);
     }
@@ -2386,6 +2385,7 @@ const server = http.createServer(async (request, response) => {
     response.write(": conectado\n\n");
     sseClients.add(response);
     sendSse(response, "state", currentState);
+    sendSse(response, "upnext", upNext);
 
     const heartbeat = setInterval(() => {
       try {
