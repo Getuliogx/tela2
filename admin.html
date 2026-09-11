@@ -183,7 +183,7 @@ textarea.field{min-height:108px;resize:vertical}.field[type="color"]{padding:8px
         <input id="themeScene" type="hidden">
         <input id="themeMotif" type="hidden">
 
-        <div class="theme-elements-title"><strong>Elementos que aparecem no fundo</strong><span>Escolha vários</span></div>
+        <div class="theme-elements-title"><strong>Elementos reais que aparecem no fundo</strong><span>Marque quantos quiser — não desmarca sozinho</span></div>
         <div id="themeElements" class="theme-elements"></div>
 
         <div class="theme-color-row">
@@ -194,7 +194,7 @@ textarea.field{min-height:108px;resize:vertical}.field[type="color"]{padding:8px
         <label style="display:flex;align-items:center;gap:9px;margin-top:12px;color:#d7d7df;font-size:13px"><input id="themeSaveForItem" type="checkbox" checked> Guardar este fundo para este filme/série</label>
 
         <div class="theme-actionbar">
-          <button id="themeSuggest" class="secondary" type="button">Gerar pelo conteúdo</button>
+          <button id="themeSuggest" class="secondary" type="button">Escolher elementos pelo conteúdo</button>
           <button id="themeApply" class="primary" type="button">Aplicar fundo agora</button>
           <button id="themeReset" class="secondary" type="button">Restaurar automático</button>
         </div>
@@ -298,6 +298,8 @@ textarea.field{min-height:108px;resize:vertical}.field[type="color"]{padding:8px
   let episodeTimer = null;
   let episodeRequestSequence = 0;
   let syncingEpisodeControls = false;
+  let themeEditorDirty = false;
+  let themeEditorKey = "";
 
   passwordEl.value = localStorage.getItem(PASSWORD_KEY) || "";
   passwordEl.addEventListener("input", () => localStorage.setItem(PASSWORD_KEY, passwordEl.value));
@@ -308,12 +310,14 @@ textarea.field{min-height:108px;resize:vertical}.field[type="color"]{padding:8px
   function saveLocal(){localStorage.setItem(LOCAL_KEY,JSON.stringify(saved))}
 
   const THEME_ELEMENT_OPTIONS=[
-    ["buttons","◉","Botões"],["mansion","⌂","Mansão"],["black-cat","🐈‍⬛","Gatinho preto"],["moon","☾","Lua"],
-    ["school","▦","Colégio"],["music","♫","Música"],["stars","✦","Estrelas"],["heart","♥","Coração"],
-    ["flowers","✿","Flores"],["blood","◆","Sangue"],["bamboo","🎋","Bambu"],["road","━","Estrada"],
-    ["fire","🔥","Fogo"],["desert","☀","Deserto"],["magic","✧","Magia"],["lab","⚗","Laboratório"],
-    ["cells","◌","Células"],["forest","♣","Floresta"],["castle","♜","Castelo"],["city","▥","Cidade"],
-    ["rain","╱","Chuva"],["waves","≈","Mar"]
+    ["buttons","◉","Botões"],["mansion","⌂","Mansão"],["black-cat","●","Gatinho preto"],["tunnel","◎","Túnel"],
+    ["moon","☾","Lua"],["sun","☀","Sol"],["school","▦","Colégio"],["music","♫","Música"],
+    ["stars","✦","Estrelas"],["heart","♥","Coração"],["flowers","✿","Flores"],["maypole","✣","Mastro de flores"],
+    ["blood","◆","Sangue"],["fangs","∨","Presas"],["bamboo","┃","Bambu"],["mountains","▲","Montanhas"],
+    ["road","━","Estrada"],["fire","♨","Fogo"],["desert","∿","Deserto"],["magic","✧","Magia"],
+    ["lab","⚗","Laboratório"],["cells","◌","Células"],["syringe","╱","Seringa"],["forest","♣","Floresta"],
+    ["swamp","≋","Pântano"],["castle","♜","Castelo"],["city","▥","Cidade"],["rain","╱","Chuva"],
+    ["waves","≈","Mar"]
   ];
   const THEME_ELEMENT_MAP=Object.fromEntries(THEME_ELEMENT_OPTIONS.map(([key,icon,label])=>[key,{icon,label}]));
 
@@ -352,8 +356,16 @@ textarea.field{min-height:108px;resize:vertical}.field[type="color"]{padding:8px
   function themeFromItem(item){return normalizeTheme(item?.themeConfig||{})}
 
   function defaultThemePreview(){
+    themeEditorKey="";
+    themeEditorDirty=false;
     fillThemeForm({mode:"manual",style:"cinematic",name:"",elements:[],accent:"#a855f7",accent2:"#334155"})
     themeTargetInfoEl.textContent="Nenhum conteúdo"
+  }
+
+  function markThemeDirty(){
+    themeEditorDirty=true;
+    if(themeModeEl.value!=="off")themeModeEl.value="manual";
+    renderThemePreview(themeFormValue())
   }
 
   function themeFormValue(){
@@ -402,6 +414,8 @@ textarea.field{min-height:108px;resize:vertical}.field[type="color"]{padding:8px
     try{
       const payload=await api("/api/theme/suggest",{method:"POST",body:JSON.stringify({item:currentOverlayItem})});
       fillThemeForm({...payload.theme,mode:"manual"},currentOverlayItem);
+      themeEditorKey=keyOf(currentOverlayItem);
+      themeEditorDirty=true;
       notify("Fundo sugerido. Clique em Aplicar fundo agora.")
     }catch(error){notify(error.message,true)}finally{themeSuggestButton.disabled=false}
   }
@@ -414,6 +428,8 @@ textarea.field{min-height:108px;resize:vertical}.field[type="color"]{padding:8px
       const payload=await api("/api/theme/apply",{method:"POST",body:JSON.stringify({item:currentOverlayItem,themeConfig:theme,mode:reset?"auto":theme.mode,reset,saveForItem:themeSaveForItemEl.checked})});
       if(Array.isArray(payload.items))mergeSaved(payload.items);
       const fresh=payload.state||payload.item||currentOverlayItem;
+      themeEditorKey=keyOf(fresh);
+      themeEditorDirty=false;
       renderCurrent(fresh);
       fillThemeForm(fresh.themeConfig||theme,fresh);
       notify(reset?"Fundo automático restaurado":"Fundo aplicado na overlay")
@@ -735,7 +751,17 @@ textarea.field{min-height:108px;resize:vertical}.field[type="color"]{padding:8px
 
     currentEl.innerHTML=`${posterHtml(item)}<div><div class="title">${escapeHtml(item.displayTitle||item.title)}</div><div class="meta">${escapeHtml(item.typeLabel||"")}${item.year?" • "+escapeHtml(item.year):""}</div></div>`;
     syncEpisodeControls(item);
-    fillThemeForm(themeFromItem(item),item)
+
+    const incomingKey=keyOf(item);
+    const changedTitle=incomingKey!==themeEditorKey;
+    themeTargetInfoEl.textContent=item.displayTitle||item.title;
+
+    /* Não apaga/desmarca o que a pessoa está escolhendo a cada refresh de /state. */
+    if(changedTitle||!themeEditorDirty){
+      themeEditorKey=incomingKey;
+      themeEditorDirty=false;
+      fillThemeForm(themeFromItem(item),item)
+    }
   }
 
   function normalizePositiveInteger(input){
@@ -1016,12 +1042,18 @@ textarea.field{min-height:108px;resize:vertical}.field[type="color"]{padding:8px
     }catch{}
   });
   $("#refreshState").addEventListener("click",refreshState);
-  themeModeEl.addEventListener("change",()=>renderThemePreview(themeFormValue()));
-  themeStyleEl.addEventListener("change",()=>renderThemePreview(themeFormValue()));
-  themeNameEl.addEventListener("input",()=>renderThemePreview(themeFormValue()));
-  themeAccentEl.addEventListener("input",()=>renderThemePreview(themeFormValue()));
-  themeAccent2El.addEventListener("input",()=>renderThemePreview(themeFormValue()));
-  themeElementsEl.addEventListener("click",event=>{const button=event.target.closest("[data-theme-element]");if(!button)return;button.classList.toggle("selected");themeModeEl.value="manual";renderThemePreview(themeFormValue())});
+  themeModeEl.addEventListener("change",()=>{themeEditorDirty=true;renderThemePreview(themeFormValue())});
+  themeStyleEl.addEventListener("change",markThemeDirty);
+  themeNameEl.addEventListener("input",markThemeDirty);
+  themeAccentEl.addEventListener("input",markThemeDirty);
+  themeAccent2El.addEventListener("input",markThemeDirty);
+  themeSaveForItemEl.addEventListener("change",()=>{themeEditorDirty=true});
+  themeElementsEl.addEventListener("click",event=>{
+    const button=event.target.closest("[data-theme-element]");
+    if(!button)return;
+    button.classList.toggle("selected");
+    markThemeDirty()
+  });
   themeSuggestButton.addEventListener("click",requestThemeSuggestion);
   themeApplyButton.addEventListener("click",()=>applyTheme(false));
   themeResetButton.addEventListener("click",()=>applyTheme(true));

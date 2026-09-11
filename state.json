@@ -1,7 +1,7 @@
 {
-  "revision": 1789119022272,
+  "revision": 1789123919424,
   "type": "movie",
-  "tmdbId": 42,
+  "tmdbId": 266396,
   "baseTitle": "Coraline",
   "originalTitle": "",
   "title": "Coraline",
@@ -15,18 +15,26 @@
   "suffix": "",
   "year": "2009",
   "typeLabel": "Filme",
-  "poster": "https://example.com/a.jpg",
-  "overview": "Uma garota encontra uma outra casa com botões e um gato preto.",
+  "poster": "x",
+  "overview": "A girl finds a secret tunnel, another mother with button eyes and a black cat.",
   "themeConfig": {
     "mode": "manual",
-    "name": "Coraline manual",
-    "scene": "botões, mansão cor-de-rosa e gatinho",
-    "motif": "botões",
+    "name": "Coraline",
+    "scene": "",
+    "motif": "",
+    "elements": [
+      "buttons",
+      "mansion",
+      "black-cat",
+      "tunnel",
+      "moon"
+    ],
+    "style": "dreamy",
     "accent": "#cf7aa9",
     "accent2": "#355c7d",
     "source": "manual",
-    "updatedAt": "2026-09-11T09:30:22.272Z"
+    "updatedAt": "2026-09-11T10:51:59.423Z"
   },
   "updatedBy": "painel tema",
-  "updatedAt": "2026-09-11T09:30:22.272Z"
+  "updatedAt": "2026-09-11T10:51:59.424Z"
 }

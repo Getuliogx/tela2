@@ -516,20 +516,27 @@ function automaticElements(item) {
   if (/black cat|gato preto|cat|gato/.test(text)) add("black-cat");
   if (/mansion|manor|palace|casa|mansao|palacio|house/.test(text)) add("mansion");
   if (/moon|lua/.test(text)) add("moon");
+  if (/sun|sol|summer|verao/.test(text)) add("sun");
+  if (/tunnel|tunel|portal|passage/.test(text)) add("tunnel");
   if (/school|colegio|escola|high school|internato/.test(text)) add("school");
   if (/music|musica|cantor|cantora|band|banda|song|sing/.test(text)) add("music");
   if (/star|estrela/.test(text)) add("stars");
   if (/heart|coracao|romance|love|amor/.test(text)) add("heart");
   if (/flower|flor|flores|garden|jardim/.test(text)) add("flowers");
+  if (/maypole|mastro|ritual|festival/.test(text)) add("maypole");
   if (/blood|sangue|vampire|vampiro/.test(text)) add("blood");
+  if (/vampire|vampiro|fang|presa/.test(text)) add("fangs");
   if (/bamboo|bambu|panda|kung fu/.test(text)) add("bamboo");
+  if (/mountain|montanha|valley|vale/.test(text)) add("mountains");
   if (/road|estrada|car|carro|race|corrida/.test(text)) add("road");
   if (/fire|fogo|explosion|explosao/.test(text)) add("fire");
   if (/desert|deserto|wasteland/.test(text)) add("desert");
   if (/magic|magia|witch|bruxa|fairy|fada/.test(text)) add("magic");
   if (/lab|laboratorio|scientist|cientista|experiment/.test(text)) add("lab");
   if (/cell|celula|body horror|organico|organic/.test(text)) add("cells");
+  if (/syringe|seringa|inject|injecao|needle|agulha/.test(text)) add("syringe");
   if (/forest|floresta|woods|bosque/.test(text)) add("forest");
+  if (/swamp|pantano|bog/.test(text)) add("swamp");
   if (/castle|castelo|king|rei|queen|rainha|crown|coroa/.test(text)) add("castle");
   if (/city|cidade|urban/.test(text)) add("city");
   if (/rain|chuva/.test(text)) add("rain");
@@ -539,14 +546,14 @@ function automaticElements(item) {
 
 function suggestThemeForItem(item) {
   const title = normalizeCompare(item?.baseTitle || item?.title || "");
-  if (/\bcoraline\b/.test(title)) return presetTheme({name:"Coraline",scene:"botões, mansão cor-de-rosa, túnel mágico, lua azul e gatinho preto",motif:"botões + mansão + gatinho",elements:["buttons","mansion","black-cat","moon"],style:"dreamy",accent:"#cf7aa9",accent2:"#355c7d"});
+  if (/\bcoraline\b/.test(title)) return presetTheme({name:"Coraline",scene:"botões, mansão cor-de-rosa, túnel mágico, lua azul e gatinho preto",motif:"botões + mansão + gatinho",elements:["buttons","mansion","black-cat","tunnel","moon"],style:"dreamy",accent:"#cf7aa9",accent2:"#355c7d"});
   if (/\brebelde\b/.test(title)) return presetTheme({name:"Rebelde",scene:"colégio, música, estrelas, corações e energia pop",motif:"colégio + música",elements:["school","music","stars","heart"],style:"playful",accent:"#c22f43",accent2:"#d5a328"});
   if (/mad max/.test(title)) return presetTheme({name:"Mad Max",scene:"deserto, estrada, fogo, ferragens e velocidade",motif:"estrada + fogo",elements:["road","desert","fire"],style:"action",accent:"#d46b1f",accent2:"#7f2312"});
-  if (/kung fu panda/.test(title)) return presetTheme({name:"Kung Fu Panda",scene:"bambu, montanhas, sol dourado e folhas ao vento",motif:"bambu + montanhas",elements:["bamboo","stars"],style:"natural",accent:"#6f9b33",accent2:"#d39a25"});
-  if (/true blood/.test(title)) return presetTheme({name:"True Blood",scene:"lua vermelha, mansão gótica, névoa e sangue",motif:"lua + sangue",elements:["moon","mansion","blood"],style:"gothic",accent:"#8e0d22",accent2:"#2f0c16"});
-  if (/shrek/.test(title)) return presetTheme({name:"Shrek",scene:"pântano, floresta, castelo distante e brilho de conto de fadas",motif:"floresta + castelo",elements:["forest","castle","stars"],style:"natural",accent:"#6b8e23",accent2:"#8d6b2c"});
-  if (/midsommar/.test(title)) return presetTheme({name:"Midsommar",scene:"flores, sol forte, campo claro e símbolos ritualísticos",motif:"flores + sol",elements:["flowers","stars"],style:"vintage",accent:"#d2b246",accent2:"#b85f4b"});
-  if (/substancia|substance/.test(title)) return presetTheme({name:"A Substância",scene:"laboratório, líquido vermelho, células e formas orgânicas",motif:"laboratório + células",elements:["lab","cells","blood"],style:"gothic",accent:"#991b1b",accent2:"#0f766e"});
+  if (/kung fu panda/.test(title)) return presetTheme({name:"Kung Fu Panda",scene:"bambu, montanhas, sol dourado e folhas ao vento",motif:"bambu + montanhas",elements:["bamboo","mountains","sun"],style:"natural",accent:"#6f9b33",accent2:"#d39a25"});
+  if (/true blood/.test(title)) return presetTheme({name:"True Blood",scene:"lua vermelha, mansão gótica, névoa e sangue",motif:"lua + sangue",elements:["moon","mansion","blood","fangs"],style:"gothic",accent:"#8e0d22",accent2:"#2f0c16"});
+  if (/shrek/.test(title)) return presetTheme({name:"Shrek",scene:"pântano, floresta, castelo distante e brilho de conto de fadas",motif:"floresta + castelo",elements:["swamp","forest","castle","stars"],style:"natural",accent:"#6b8e23",accent2:"#8d6b2c"});
+  if (/midsommar/.test(title)) return presetTheme({name:"Midsommar",scene:"flores, sol forte, campo claro e símbolos ritualísticos",motif:"flores + sol",elements:["flowers","maypole","sun"],style:"vintage",accent:"#d2b246",accent2:"#b85f4b"});
+  if (/substancia|substance/.test(title)) return presetTheme({name:"A Substância",scene:"laboratório, líquido vermelho, células e formas orgânicas",motif:"laboratório + células",elements:["lab","cells","syringe","blood"],style:"gothic",accent:"#991b1b",accent2:"#0f766e"});
 
   const genres = genresForTheme(item);
   let elements = automaticElements(item);
@@ -562,7 +569,7 @@ function suggestThemeForItem(item) {
   else if (has("crime")||has("thriller")||has("mystery")) {name="Suspense";style="cinematic";accent="#2563eb";accent2="#111827";if(!elements.length)elements=["city","rain"];}
   else if (has("comedy")) {name="Comédia";style="playful";accent="#eab308";accent2="#f97316";if(!elements.length)elements=["stars","heart"];}
 
-  const labels={buttons:"botões","black-cat":"gatinho preto",mansion:"mansão",moon:"lua",school:"colégio",music:"música",stars:"estrelas",heart:"corações",flowers:"flores",blood:"sangue",bamboo:"bambu",road:"estrada",fire:"fogo",desert:"deserto",magic:"magia",lab:"laboratório",cells:"células",forest:"floresta",castle:"castelo",city:"cidade",rain:"chuva",waves:"mar"};
+  const labels={tunnel:"túnel",sun:"sol",maypole:"mastro de flores",fangs:"presas",mountains:"montanhas",syringe:"seringa",swamp:"pântano",buttons:"botões","black-cat":"gatinho preto",mansion:"mansão",moon:"lua",school:"colégio",music:"música",stars:"estrelas",heart:"corações",flowers:"flores",blood:"sangue",bamboo:"bambu",road:"estrada",fire:"fogo",desert:"deserto",magic:"magia",lab:"laboratório",cells:"células",forest:"floresta",castle:"castelo",city:"cidade",rain:"chuva",waves:"mar"};
   const scene=elements.length?elements.map(v=>labels[v]||v).join(", "):"luzes cinematográficas e detalhes ligados ao conteúdo";
   return presetTheme({name,scene,motif:scene,elements,style,accent,accent2});
 }
