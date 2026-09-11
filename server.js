@@ -24,9 +24,7 @@ const STATE_FILE = path.join(__dirname, "state.json");
 const SAVED_FILE = path.join(__dirname, "saved.json");
 const PROGRESS_FILE = path.join(__dirname, "series-progress.json");
 const UPNEXT_FILE = path.join(__dirname, "upnext.json");
-const THEMES_FILE = path.join(__dirname, "themes.json");
 
-let savedThemes = loadThemePresets();
 let currentState = loadState();
 let savedItems = loadSavedItems();
 let seriesProgress = loadSeriesProgress();
@@ -72,16 +70,12 @@ function validState(value) {
 
 function loadState() {
   const value = loadJson(STATE_FILE, null);
-  return validState(value)
-    ? { ...value, themeConfig: normalizeThemeConfig(value.themeConfig || suggestThemeForItem(value)) }
-    : null;
+  return validState(value) ? value : null;
 }
 
 function loadSavedItems() {
   const value = loadJson(SAVED_FILE, []);
-  return Array.isArray(value)
-    ? value.filter(validMediaItem).slice(0, 200).map(attachTheme)
-    : [];
+  return Array.isArray(value) ? value.filter(validMediaItem).slice(0, 200) : [];
 }
 
 function loadSeriesProgress() {
@@ -168,7 +162,6 @@ function cleanUpNextItem(item) {
     poster: String(item.poster || ""),
     seriesPoster: String(item.seriesPoster || ""),
     overview: String(item.overview || ""),
-    themeConfig: normalizeThemeConfig(item.themeConfig || themeForItem(item)),
     selectedSeason: Number(item.selectedSeason || item.savedSeason || 0) || null,
     selectedEpisode: Number(item.selectedEpisode || item.savedEpisode || 0) || null,
     savedSeason: Number(item.savedSeason || item.selectedSeason || 0) || null,
@@ -392,253 +385,177 @@ function currentUpNextView(now = Date.now()) {
 }
 
 
-function normalizeCompare(value) {
+function normalizeElementText(value) {
   return String(value || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 }
 
-function cleanThemeText(value, max = 180) {
-  return String(value || "")
-    .replace(/[<>\r\n]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, max);
+const CONTENT_ELEMENT_PRESETS = [
+  { test: /\bcoraline\b/, ids: ["button","cat","house","tunnel","moon","key"] },
+  { test: /\bmidsommar\b/, ids: ["flower","maypole","sun","house","field"] },
+  { test: /\brebelde\b/, ids: ["school","music","star","heart"] },
+  { test: /\btrue blood\b/, ids: ["vampire","blood","moon","mansion","fangs"] },
+  { test: /\bshrek\b/, ids: ["ogre","swamp","castle","donkey","star"] },
+  { test: /\bkung fu panda\b/, ids: ["panda","bamboo","mountain","temple","sun"] },
+  { test: /\bmad max\b/, ids: ["car","road","fire","desert","skull"] },
+  { test: /\b(?:a )?substancia\b|\bthe substance\b/, ids: ["syringe","cell","lab","blood","mirror"] },
+  { test: /\bharry potter\b/, ids: ["wand","castle","owl","book","star"] },
+  { test: /\bstar wars\b/, ids: ["spaceship","planet","star","laser"] },
+  { test: /\bjurassic (?:park|world)\b/, ids: ["dinosaur","forest","mountain","car"] },
+  { test: /\bjaws\b|\btubarao\b/, ids: ["shark","ocean","boat","wave"] },
+  { test: /\btitanic\b/, ids: ["ship","ocean","star","heart"] },
+  { test: /\bthe matrix\b|\bmatrix\b/, ids: ["code","glasses","city","phone"] },
+  { test: /\bbatman\b/, ids: ["bat","city","moon"] },
+  { test: /\bspider[- ]?man\b|\bhomem[- ]aranha\b/, ids: ["spider","web","city"] },
+  { test: /\bfrozen\b/, ids: ["snow","castle","mountain","star"] },
+  { test: /\bcoco\b/, ids: ["guitar","skull","flower","music"] },
+  { test: /\blord of the rings\b|\bsenhor dos aneis\b|\bthe hobbit\b|\bo hobbit\b/, ids: ["ring","sword","mountain","castle"] },
+  { test: /\balien\b/, ids: ["alien","spaceship","planet","star"] },
+  { test: /\bterminator\b|\bo exterminador\b/, ids: ["robot","city","fire"] },
+  { test: /\bback to the future\b|\bde volta para o futuro\b/, ids: ["car","clock","lightning","road"] },
+  { test: /\bpirates of the caribbean\b|\bpiratas do caribe\b/, ids: ["ship","ocean","skull","sword"] },
+  { test: /\bit\b.*\b(?:chapter|capitulo)\b|\bit a coisa\b|\ba coisa\b/, ids: ["balloon","clown","rain"] },
+  { test: /\bscream\b|\bpanico\b/, ids: ["mask","phone","blood"] },
+  { test: /\bavatar\b/, ids: ["forest","mountain","moon","alien"] },
+  { test: /\boppenheimer\b/, ids: ["atom","fire","lab","clock"] },
+  { test: /\bdune\b|\bduna\b/, ids: ["desert","planet","worm","moon"] },
+  { test: /\bwonka\b|\bcharlie.*chocolate\b/, ids: ["candy","hat","star"] }
+];
+
+const CONTENT_ELEMENT_RULES = [
+  ["button", /\b(button|buttons|botao|botoes)\b/],
+  ["cat", /\b(cat|black cat|gato|gatinho|felino)\b/],
+  ["dog", /\b(dog|cao|cachorro)\b/],
+  ["house", /\b(house|home|casa|residence|lar)\b/],
+  ["mansion", /\b(mansion|mansao|manor)\b/],
+  ["tunnel", /\b(tunnel|tunel|passage|passagem)\b/],
+  ["door", /\b(door|porta|portal)\b/],
+  ["key", /\b(key|chave)\b/],
+  ["mirror", /\b(mirror|espelho)\b/],
+  ["moon", /\b(moon|lua|lunar)\b/],
+  ["sun", /\b(sun|sol|solar)\b/],
+  ["star", /\b(star|stars|estrela|estrelas)\b/],
+  ["school", /\b(school|college|colegio|escola|high school)\b/],
+  ["music", /\b(music|musical|song|singing|musica|cantor|banda)\b/],
+  ["heart", /\b(heart|love|romance|coracao|amor)\b/],
+  ["flower", /\b(flower|flowers|floral|flor|flores)\b/],
+  ["maypole", /\b(maypole|mastro|midsummer|midsommar)\b/],
+  ["blood", /\b(blood|bloody|sangue|gore)\b/],
+  ["fangs", /\b(fang|fangs|presa|presas)\b/],
+  ["vampire", /\b(vampire|vampires|vampiro|vampiros)\b/],
+  ["bat", /\b(bat|bats|morcego|morcegos)\b/],
+  ["bamboo", /\b(bamboo|bambu)\b/],
+  ["panda", /\b(panda)\b/],
+  ["mountain", /\b(mountain|mountains|montanha|montanhas)\b/],
+  ["temple", /\b(temple|templo|monastery|mosteiro)\b/],
+  ["road", /\b(road|highway|estrada|rodovia)\b/],
+  ["car", /\b(car|cars|vehicle|automobile|carro|veiculo|corrida|race)\b/],
+  ["fire", /\b(fire|flame|flames|fogo|chama|explosion|explosao)\b/],
+  ["desert", /\b(desert|wasteland|deserto)\b/],
+  ["lab", /\b(lab|laboratory|laboratorio|experiment|experimento)\b/],
+  ["cell", /\b(cell|cells|celula|celulas|organic|organico)\b/],
+  ["syringe", /\b(syringe|injection|needle|seringa|injecao|agulha)\b/],
+  ["forest", /\b(forest|woods|jungle|floresta|selva)\b/],
+  ["swamp", /\b(swamp|pântano|pantano|bog)\b/],
+  ["castle", /\b(castle|palace|castelo|palacio)\b/],
+  ["city", /\b(city|metropolis|cidade|urban|urbano)\b/],
+  ["rain", /\b(rain|storm|chuva|tempestade)\b/],
+  ["ocean", /\b(ocean|sea|mar|oceano)\b/],
+  ["ship", /\b(ship|navio|liner|transatlantic)\b/],
+  ["boat", /\b(boat|barco|yacht)\b/],
+  ["wave", /\b(wave|waves|onda|ondas)\b/],
+  ["shark", /\b(shark|tubarao)\b/],
+  ["dinosaur", /\b(dinosaur|dinossauro|tyrannosaurus|raptor|t-rex)\b/],
+  ["spaceship", /\b(spacecraft|spaceship|starship|nave|space ship)\b/],
+  ["planet", /\b(planet|planeta|space|espaco)\b/],
+  ["alien", /\b(alien|extraterrestrial|extraterrestre)\b/],
+  ["robot", /\b(robot|android|cyborg|robo|ciborgue)\b/],
+  ["wand", /\b(wand|magic wand|varinha|wizard|witch|bruxo|bruxa|magic|magia)\b/],
+  ["owl", /\b(owl|coruja)\b/],
+  ["book", /\b(book|books|livro|livros)\b/],
+  ["sword", /\b(sword|blade|espada)\b/],
+  ["ring", /\b(ring|rings|anel|aneis)\b/],
+  ["dragon", /\b(dragon|dragao)\b/],
+  ["snow", /\b(snow|ice|neve|gelo|frozen)\b/],
+  ["skull", /\b(skull|skeleton|caveira|esqueleto)\b/],
+  ["guitar", /\b(guitar|violao|guitarra)\b/],
+  ["mask", /\b(mask|masked|mascara)\b/],
+  ["phone", /\b(phone|telephone|telefone|celular)\b/],
+  ["spider", /\b(spider|aranha)\b/],
+  ["web", /\b(web|webs|teia|teias)\b/],
+  ["code", /\b(computer|code|matrix|codigo|virtual reality|realidade virtual)\b/],
+  ["glasses", /\b(glasses|sunglasses|oculos)\b/],
+  ["clock", /\b(clock|time travel|relogio|viagem no tempo|time machine)\b/],
+  ["lightning", /\b(lightning|thunder|raio|relampago)\b/],
+  ["balloon", /\b(balloon|balao)\b/],
+  ["clown", /\b(clown|palhaco)\b/],
+  ["atom", /\b(atom|atomic|nuclear|atomo|nuclear)\b/],
+  ["worm", /\b(worm|sandworm|verme|minhoca)\b/],
+  ["candy", /\b(candy|chocolate|sweet|doce|doces)\b/],
+  ["hat", /\b(hat|chapeu)\b/],
+  ["ogre", /\b(ogre|ogro)\b/],
+  ["donkey", /\b(donkey|burro)\b/],
+  ["field", /\b(field|meadow|campo|prado)\b/],
+  ["laser", /\b(laser|lightsaber|sabre de luz)\b/]
+];
+
+function elementPresetForTitle(title) {
+  const normalized = normalizeElementText(title);
+  return CONTENT_ELEMENT_PRESETS.find(entry => entry.test.test(normalized))?.ids || [];
 }
 
-function normalizeThemeColor(value, fallback) {
-  const color = String(value || "").trim();
-  return /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(color)
-    ? color
-    : fallback;
-}
-
-function normalizeThemeMode(value) {
-  const mode = String(value || "").trim().toLowerCase();
-  return mode === "manual" || mode === "off" ? mode : "auto";
-}
-
-function normalizeThemeConfig(value, fallback = null) {
-  const source = value && typeof value === "object" && !Array.isArray(value)
-    ? value
-    : (fallback && typeof fallback === "object" ? fallback : {});
-
-  const elements = Array.isArray(source.elements)
-    ? [...new Set(source.elements.map(value => cleanThemeText(value, 32)).filter(Boolean))].slice(0, 8)
-    : String(source.elements || "").split(/[,;|]+/).map(value => cleanThemeText(value, 32)).filter(Boolean).slice(0, 8);
-
-  const allowedStyles = new Set([
-    "cinematic", "dreamy", "gothic", "playful",
-    "natural", "action", "neon", "vintage"
-  ]);
-  const style = allowedStyles.has(String(source.style || "").toLowerCase())
-    ? String(source.style).toLowerCase()
-    : "cinematic";
-
-  return {
-    mode: normalizeThemeMode(source.mode || "auto"),
-    name: cleanThemeText(source.name || "", 60),
-    scene: cleanThemeText(source.scene || "", 220),
-    motif: cleanThemeText(source.motif || "", 80),
-    elements,
-    style,
-    accent: normalizeThemeColor(source.accent, "#a855f7"),
-    accent2: normalizeThemeColor(source.accent2, "#7c3aed"),
-    source: cleanThemeText(source.source || "manual", 24) || "manual",
-    updatedAt: String(source.updatedAt || "")
+function elementLabels(ids) {
+  const labels = {
+    button:"Botões",cat:"Gato preto",dog:"Cachorro",house:"Casa",mansion:"Mansão",tunnel:"Túnel",door:"Porta",key:"Chave",mirror:"Espelho",moon:"Lua",sun:"Sol",star:"Estrelas",school:"Colégio",music:"Música",heart:"Coração",flower:"Flores",maypole:"Mastro de flores",blood:"Sangue",fangs:"Presas",vampire:"Vampiro",bat:"Morcegos",bamboo:"Bambu",panda:"Panda",mountain:"Montanhas",temple:"Templo",road:"Estrada",car:"Carro",fire:"Fogo",desert:"Deserto",lab:"Laboratório",cell:"Células",syringe:"Seringa",forest:"Floresta",swamp:"Pântano",castle:"Castelo",city:"Cidade",rain:"Chuva",ocean:"Mar",ship:"Navio",boat:"Barco",wave:"Ondas",shark:"Tubarão",dinosaur:"Dinossauro",spaceship:"Nave",planet:"Planeta",alien:"Alien",robot:"Robô",wand:"Varinha",owl:"Coruja",book:"Livro",sword:"Espada",ring:"Anel",dragon:"Dragão",snow:"Neve",skull:"Caveira",guitar:"Violão",mask:"Máscara",phone:"Telefone",spider:"Aranha",web:"Teia",code:"Código",glasses:"Óculos",clock:"Relógio",lightning:"Raio",balloon:"Balão",clown:"Palhaço",atom:"Átomo",worm:"Verme de areia",candy:"Doces",hat:"Chapéu",ogre:"Ogro",donkey:"Burro",field:"Campo",laser:"Sabre de luz"
   };
+  return ids.map(id => ({ id, label: labels[id] || id }));
 }
 
-function mediaItemKey(item) {
-  return item && (item.type === "movie" || item.type === "tv") && Number(item.tmdbId) > 0
-    ? `${item.type}:${Number(item.tmdbId)}`
-    : "";
-}
+async function enrichContentElements(item) {
+  if (!validMediaItem(item)) return item;
 
-function loadThemePresets() {
-  const value = loadJson(THEMES_FILE, {});
+  const titlePreset = elementPresetForTitle(item.title || item.baseTitle || "");
+  let details = null;
+  let keywords = [];
+  let genres = [];
+  let overview = String(item.overview || "");
 
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  const cleaned = {};
-
-  for (const [key, theme] of Object.entries(value)) {
-    if (/^(movie|tv):\d+$/.test(key)) {
-      cleaned[key] = normalizeThemeConfig(theme);
-    }
-  }
-
-  return cleaned;
-}
-
-function saveThemePresets() {
-  writeJson(THEMES_FILE, savedThemes);
-}
-
-function presetTheme(fields) {
-  return normalizeThemeConfig({
-    mode: "auto",
-    source: "suggested",
-    style: "cinematic",
-    ...fields,
-    updatedAt: new Date().toISOString()
-  });
-}
-
-const TMDB_GENRE_NAMES = {
-  28:"action",12:"adventure",16:"animation",35:"comedy",80:"crime",99:"documentary",
-  18:"drama",10751:"family",14:"fantasy",36:"history",27:"horror",10402:"music",
-  9648:"mystery",10749:"romance",878:"scifi",10770:"tv",53:"thriller",10752:"war",37:"western",
-  10759:"action",10762:"family",10763:"news",10764:"reality",10765:"scifi",10766:"soap",10767:"talk",10768:"war"
-};
-
-function genresForTheme(item) {
-  const values = [];
-  const ids = Array.isArray(item?.genreIds) ? item.genreIds : Array.isArray(item?.genre_ids) ? item.genre_ids : [];
-  for (const id of ids) if (TMDB_GENRE_NAMES[Number(id)]) values.push(TMDB_GENRE_NAMES[Number(id)]);
-  const direct = Array.isArray(item?.genres) ? item.genres : [];
-  for (const genre of direct) values.push(String(genre?.name || genre || "").toLowerCase());
-  return [...new Set(values.filter(Boolean))];
-}
-
-function automaticElements(item) {
-  const title = normalizeCompare(item?.baseTitle || item?.title || "");
-  const overview = normalizeCompare(item?.overview || "");
-  const keywords = Array.isArray(item?.themeKeywords) ? item.themeKeywords.map(normalizeCompare) : [];
-  const text = `${title} ${overview} ${keywords.join(" ")}`;
-  const out = [];
-  const add = value => { if (!out.includes(value)) out.push(value); };
-
-  if (/button|botoes?|button eyes?/.test(text)) add("buttons");
-  if (/black cat|gato preto|cat|gato/.test(text)) add("black-cat");
-  if (/mansion|manor|palace|casa|mansao|palacio|house/.test(text)) add("mansion");
-  if (/moon|lua/.test(text)) add("moon");
-  if (/sun|sol|summer|verao/.test(text)) add("sun");
-  if (/tunnel|tunel|portal|passage/.test(text)) add("tunnel");
-  if (/school|colegio|escola|high school|internato/.test(text)) add("school");
-  if (/music|musica|cantor|cantora|band|banda|song|sing/.test(text)) add("music");
-  if (/star|estrela/.test(text)) add("stars");
-  if (/heart|coracao|romance|love|amor/.test(text)) add("heart");
-  if (/flower|flor|flores|garden|jardim/.test(text)) add("flowers");
-  if (/maypole|mastro|ritual|festival/.test(text)) add("maypole");
-  if (/blood|sangue|vampire|vampiro/.test(text)) add("blood");
-  if (/vampire|vampiro|fang|presa/.test(text)) add("fangs");
-  if (/bamboo|bambu|panda|kung fu/.test(text)) add("bamboo");
-  if (/mountain|montanha|valley|vale/.test(text)) add("mountains");
-  if (/road|estrada|car|carro|race|corrida/.test(text)) add("road");
-  if (/fire|fogo|explosion|explosao/.test(text)) add("fire");
-  if (/desert|deserto|wasteland/.test(text)) add("desert");
-  if (/magic|magia|witch|bruxa|fairy|fada/.test(text)) add("magic");
-  if (/lab|laboratorio|scientist|cientista|experiment/.test(text)) add("lab");
-  if (/cell|celula|body horror|organico|organic/.test(text)) add("cells");
-  if (/syringe|seringa|inject|injecao|needle|agulha/.test(text)) add("syringe");
-  if (/forest|floresta|woods|bosque/.test(text)) add("forest");
-  if (/swamp|pantano|bog/.test(text)) add("swamp");
-  if (/castle|castelo|king|rei|queen|rainha|crown|coroa/.test(text)) add("castle");
-  if (/city|cidade|urban/.test(text)) add("city");
-  if (/rain|chuva/.test(text)) add("rain");
-  if (/ocean|sea|mar|oceano/.test(text)) add("waves");
-  return out.slice(0, 6);
-}
-
-function suggestThemeForItem(item) {
-  const title = normalizeCompare(item?.baseTitle || item?.title || "");
-  if (/\bcoraline\b/.test(title)) return presetTheme({name:"Coraline",scene:"botões, mansão cor-de-rosa, túnel mágico, lua azul e gatinho preto",motif:"botões + mansão + gatinho",elements:["buttons","mansion","black-cat","tunnel","moon"],style:"dreamy",accent:"#cf7aa9",accent2:"#355c7d"});
-  if (/\brebelde\b/.test(title)) return presetTheme({name:"Rebelde",scene:"colégio, música, estrelas, corações e energia pop",motif:"colégio + música",elements:["school","music","stars","heart"],style:"playful",accent:"#c22f43",accent2:"#d5a328"});
-  if (/mad max/.test(title)) return presetTheme({name:"Mad Max",scene:"deserto, estrada, fogo, ferragens e velocidade",motif:"estrada + fogo",elements:["road","desert","fire"],style:"action",accent:"#d46b1f",accent2:"#7f2312"});
-  if (/kung fu panda/.test(title)) return presetTheme({name:"Kung Fu Panda",scene:"bambu, montanhas, sol dourado e folhas ao vento",motif:"bambu + montanhas",elements:["bamboo","mountains","sun"],style:"natural",accent:"#6f9b33",accent2:"#d39a25"});
-  if (/true blood/.test(title)) return presetTheme({name:"True Blood",scene:"lua vermelha, mansão gótica, névoa e sangue",motif:"lua + sangue",elements:["moon","mansion","blood","fangs"],style:"gothic",accent:"#8e0d22",accent2:"#2f0c16"});
-  if (/shrek/.test(title)) return presetTheme({name:"Shrek",scene:"pântano, floresta, castelo distante e brilho de conto de fadas",motif:"floresta + castelo",elements:["swamp","forest","castle","stars"],style:"natural",accent:"#6b8e23",accent2:"#8d6b2c"});
-  if (/midsommar/.test(title)) return presetTheme({name:"Midsommar",scene:"flores, sol forte, campo claro e símbolos ritualísticos",motif:"flores + sol",elements:["flowers","maypole","sun"],style:"vintage",accent:"#d2b246",accent2:"#b85f4b"});
-  if (/substancia|substance/.test(title)) return presetTheme({name:"A Substância",scene:"laboratório, líquido vermelho, células e formas orgânicas",motif:"laboratório + células",elements:["lab","cells","syringe","blood"],style:"gothic",accent:"#991b1b",accent2:"#0f766e"});
-
-  const genres = genresForTheme(item);
-  let elements = automaticElements(item);
-  const has = value => genres.includes(value);
-  let name = item?.type === "tv" ? "Série" : "Filme", style="cinematic", accent="#a855f7", accent2="#334155";
-  if (has("horror")) {name="Terror";style="gothic";accent="#8b111e";accent2="#2f0f19";if(!elements.length)elements=["moon","forest","blood"];}
-  else if (has("scifi")) {name="Ficção científica";style="neon";accent="#0ea5e9";accent2="#1d4ed8";if(!elements.length)elements=["stars","city"];}
-  else if (has("animation")||has("family")) {name="Animação";style="playful";accent="#14b8a6";accent2="#f59e0b";if(!elements.length)elements=["stars","flowers"];}
-  else if (has("fantasy")) {name="Fantasia";style="dreamy";accent="#8b5cf6";accent2="#d4a72c";if(!elements.length)elements=["magic","castle","stars"];}
-  else if (has("romance")) {name="Romance";style="dreamy";accent="#ec4899";accent2="#a855f7";if(!elements.length)elements=["heart","flowers","stars"];}
-  else if (has("music")) {name="Música";style="playful";accent="#d946ef";accent2="#7c3aed";if(!elements.length)elements=["music","stars"];}
-  else if (has("action")||has("adventure")) {name="Ação/Aventura";style="action";accent="#f97316";accent2="#dc2626";if(!elements.length)elements=["fire","road","stars"];}
-  else if (has("crime")||has("thriller")||has("mystery")) {name="Suspense";style="cinematic";accent="#2563eb";accent2="#111827";if(!elements.length)elements=["city","rain"];}
-  else if (has("comedy")) {name="Comédia";style="playful";accent="#eab308";accent2="#f97316";if(!elements.length)elements=["stars","heart"];}
-
-  const labels={tunnel:"túnel",sun:"sol",maypole:"mastro de flores",fangs:"presas",mountains:"montanhas",syringe:"seringa",swamp:"pântano",buttons:"botões","black-cat":"gatinho preto",mansion:"mansão",moon:"lua",school:"colégio",music:"música",stars:"estrelas",heart:"corações",flowers:"flores",blood:"sangue",bamboo:"bambu",road:"estrada",fire:"fogo",desert:"deserto",magic:"magia",lab:"laboratório",cells:"células",forest:"floresta",castle:"castelo",city:"cidade",rain:"chuva",waves:"mar"};
-  const scene=elements.length?elements.map(v=>labels[v]||v).join(", "):"luzes cinematográficas e detalhes ligados ao conteúdo";
-  return presetTheme({name,scene,motif:scene,elements,style,accent,accent2});
-}
-
-async function fetchThemeKeywords(item) {
-  if (!validMediaItem(item)) return [];
   try {
-    const url = new URL(`https://api.themoviedb.org/3/${item.type}/${Number(item.tmdbId)}/keywords`);
-    const payload = await fetchTmdbJson(url);
-    const rows = Array.isArray(payload?.keywords) ? payload.keywords : Array.isArray(payload?.results) ? payload.results : [];
-    return rows.map(row => String(row?.name || "").trim()).filter(Boolean).slice(0, 30);
-  } catch { return []; }
-}
-
-async function richThemeForItem(item) {
-  const themeKeywords = await fetchThemeKeywords(item);
-  return suggestThemeForItem({ ...item, themeKeywords });
-}
-
-function themeForItem(item) {
-  const key = mediaItemKey(item);
-  return normalizeThemeConfig(
-    key && savedThemes[key]
-      ? savedThemes[key]
-      : suggestThemeForItem(item)
-  );
-}
-
-function attachTheme(item) {
-  if (!validMediaItem(item)) {
-    return item;
+    const url = new URL(`https://api.themoviedb.org/3/${item.type}/${Number(item.tmdbId)}`);
+    url.searchParams.set("language", "pt-BR");
+    url.searchParams.set("append_to_response", "keywords");
+    details = await fetchTmdbJson(url);
+    overview = String(details?.overview || overview || "");
+    genres = Array.isArray(details?.genres) ? details.genres.map(g => String(g?.name || "")).filter(Boolean) : [];
+    const rawKeywords = details?.keywords?.keywords || details?.keywords?.results || [];
+    keywords = Array.isArray(rawKeywords) ? rawKeywords.map(k => String(k?.name || "")).filter(Boolean) : [];
+  } catch (error) {
+    console.error(`[elementos] ${item.type}:${item.tmdbId} - ${error.message}`);
   }
+
+  const corpus = normalizeElementText([
+    item.title,
+    item.originalTitle,
+    overview,
+    ...keywords
+  ].filter(Boolean).join(" | "));
+
+  const detected = [];
+  for (const [id, pattern] of CONTENT_ELEMENT_RULES) {
+    if (pattern.test(corpus)) detected.push(id);
+  }
+
+  const ids = [...new Set([...titlePreset, ...detected])].slice(0, 7);
 
   return {
     ...item,
-    themeConfig: normalizeThemeConfig(item.themeConfig || themeForItem(item))
+    overview,
+    genres,
+    keywords,
+    contentElements: elementLabels(ids)
   };
-}
-
-function deleteThemePreset(item) {
-  const key = mediaItemKey(item);
-
-  if (!key) {
-    return false;
-  }
-
-  if (savedThemes[key]) {
-    delete savedThemes[key];
-    saveThemePresets();
-    return true;
-  }
-
-  return false;
-}
-
-function setThemePreset(item, themeConfig) {
-  const key = mediaItemKey(item);
-
-  if (!key) {
-    return null;
-  }
-
-  savedThemes[key] = normalizeThemeConfig({
-    ...themeConfig,
-    updatedAt: new Date().toISOString(),
-    source: "manual"
-  });
-  saveThemePresets();
-  return savedThemes[key];
 }
 
 function validMediaItem(value) {
@@ -753,13 +670,13 @@ function decorateWithSeriesProgress(item) {
         : true;
 
   if (!progress) {
-    return attachTheme({
+    return {
       ...item,
       showSeason
-    });
+    };
   }
 
-  return attachTheme({
+  return {
     ...item,
     showSeason,
     poster: progress.poster || item.poster,
@@ -769,7 +686,7 @@ function decorateWithSeriesProgress(item) {
     savedEpisode: progress.episode,
     savedSeason: progress.season,
     savedSuffix: progress.suffix
-  });
+  };
 }
 
 function commonHeaders(contentType = "application/json; charset=utf-8") {
@@ -956,9 +873,7 @@ function mediaFromTmdb(item, type, resolvedPoster = "") {
       imageUrl(item.poster_path, "w342") ||
       imageUrl(item.backdrop_path, "w500") ||
       placeholderPoster(title, type),
-    overview: String(item.overview || "").trim(),
-    genreIds: Array.isArray(item.genre_ids) ? item.genre_ids.map(Number).filter(Number.isFinite) : [],
-    themeConfig: null
+    overview: String(item.overview || "").trim()
   };
 }
 
@@ -1053,26 +968,28 @@ async function hydrateMediaItem(item) {
     return item;
   }
 
-  if (String(item.poster || "").trim()) {
-    return item;
+  let hydrated = item;
+
+  if (!String(item.poster || "").trim()) {
+    const tmdbItem = {
+      id: Number(item.tmdbId),
+      title: item.type === "movie" ? item.title : undefined,
+      name: item.type === "tv" ? item.title : undefined,
+      original_title: item.type === "movie" ? item.originalTitle : undefined,
+      original_name: item.type === "tv" ? item.originalTitle : undefined,
+      release_date: item.type === "movie" && item.year ? `${item.year}-01-01` : "",
+      first_air_date: item.type === "tv" && item.year ? `${item.year}-01-01` : "",
+      poster_path: "",
+      backdrop_path: ""
+    };
+
+    hydrated = {
+      ...item,
+      poster: await resolvePoster(tmdbItem, item.type)
+    };
   }
 
-  const tmdbItem = {
-    id: Number(item.tmdbId),
-    title: item.type === "movie" ? item.title : undefined,
-    name: item.type === "tv" ? item.title : undefined,
-    original_title: item.type === "movie" ? item.originalTitle : undefined,
-    original_name: item.type === "tv" ? item.originalTitle : undefined,
-    release_date: item.type === "movie" && item.year ? `${item.year}-01-01` : "",
-    first_air_date: item.type === "tv" && item.year ? `${item.year}-01-01` : "",
-    poster_path: "",
-    backdrop_path: ""
-  };
-
-  return {
-    ...item,
-    poster: await resolvePoster(tmdbItem, item.type)
-  };
+  return enrichContentElements(hydrated);
 }
 
 async function mapLimit(items, limit, mapper) {
@@ -1593,10 +1510,11 @@ async function tmdbSearch(type, query, year = "") {
 
   const hydrated = await mapLimit(selected, 5, async entry => {
     const poster = await resolvePoster(entry.item, type);
-    return mediaFromTmdb(entry.item, type, poster);
+    const media = mediaFromTmdb(entry.item, type, poster);
+    return enrichContentElements(media);
   });
 
-  return hydrated.map(item => item.type === "tv" ? decorateWithSeriesProgress(item) : attachTheme(item));
+  return hydrated.map(decorateWithSeriesProgress);
 }
 
 async function findBestMedia(type, query, year = "") {
@@ -1653,8 +1571,6 @@ function updateOverlay(item, suffix = "", updatedBy = "painel") {
     ? `${item.title} ${visibleExtra}`
     : item.title;
 
-  const themeConfig = normalizeThemeConfig(item.themeConfig || themeForItem(item));
-
   currentState = {
     revision: Date.now(),
     type: item.type,
@@ -1679,7 +1595,9 @@ function updateOverlay(item, suffix = "", updatedBy = "painel") {
     typeLabel: item.typeLabel || typeLabel(item.type),
     poster: String(item.poster || ""),
     overview: String(item.overview || ""),
-    themeConfig,
+    genres: Array.isArray(item.genres) ? item.genres : [],
+    keywords: Array.isArray(item.keywords) ? item.keywords : [],
+    contentElements: Array.isArray(item.contentElements) ? item.contentElements : [],
     updatedBy,
     updatedAt: new Date().toISOString()
   };
@@ -2083,7 +2001,7 @@ async function handleApi(request, response, url) {
   if (request.method === "POST" && url.pathname === "/api/upnext/items") {
     try {
       const body = await readJson(request);
-      let item = attachTheme(await hydrateMediaItem(body.item));
+      let item = await hydrateMediaItem(body.item);
 
       if (item?.type === "tv") {
         item = await enrichSeriesItem(item);
@@ -2193,11 +2111,9 @@ async function handleApi(request, response, url) {
       async item => {
         const hydratedItem = await hydrateMediaItem(item);
 
-        const finalItem = hydratedItem.type === "tv"
-          ? await enrichSeriesItem(hydratedItem)
+        return hydratedItem.type === "tv"
+          ? enrichSeriesItem(hydratedItem)
           : hydratedItem;
-
-        return attachTheme(finalItem);
       }
     );
 
@@ -2221,7 +2137,7 @@ async function handleApi(request, response, url) {
   if (request.method === "POST" && url.pathname === "/api/saved") {
     try {
       const body = await readJson(request);
-      let item = attachTheme(await hydrateMediaItem(body.item));
+      let item = await hydrateMediaItem(body.item);
 
       if (item?.type === "tv") {
         item = await enrichSeriesItem(item);
@@ -2233,7 +2149,7 @@ async function handleApi(request, response, url) {
 
       const key = `${item.type}:${item.tmdbId}`;
       savedItems = [
-        { ...attachTheme(item), savedAt: new Date().toISOString() },
+        { ...item, savedAt: new Date().toISOString() },
         ...savedItems.filter(entry => `${entry.type}:${entry.tmdbId}` !== key)
       ].slice(0, 200);
       saveSavedItems();
@@ -2308,7 +2224,7 @@ async function handleApi(request, response, url) {
         body.episode
       );
 
-      selected = attachTheme({
+      selected = {
         ...selected,
         showSeason:
           typeof body.showSeason === "boolean"
@@ -2316,7 +2232,7 @@ async function handleApi(request, response, url) {
             : typeof item.showSeason === "boolean"
               ? item.showSeason
               : true
-      });
+      };
 
       rememberSeriesProgress(
         selected,
@@ -2369,115 +2285,10 @@ async function handleApi(request, response, url) {
     return;
   }
 
-
-  if (request.method === "POST" && url.pathname === "/api/theme/suggest") {
-    try {
-      const body = await readJson(request);
-      let item = null;
-
-      if (validMediaItem(body.item)) {
-        item = await hydrateMediaItem(body.item);
-      } else if (validState(currentState)) {
-        item = currentState;
-      }
-
-      if (!item) {
-        throw new Error("Selecione um conteúdo primeiro");
-      }
-
-      sendJson(response, 200, {
-        ok: true,
-        theme: await richThemeForItem(item),
-        item: attachTheme(item)
-      });
-    } catch (error) {
-      sendJson(response, 400, { ok: false, error: error.message });
-    }
-    return;
-  }
-
-  if (request.method === "POST" && url.pathname === "/api/theme/apply") {
-    try {
-      const body = await readJson(request);
-      let item = null;
-
-      if (validMediaItem(body.item)) {
-        item = await hydrateMediaItem(body.item);
-      } else if (validState(currentState)) {
-        item = currentState;
-      }
-
-      if (!item) {
-        throw new Error("Selecione um conteúdo primeiro");
-      }
-
-      const useAuto = body.reset === true || body.mode === "auto";
-      const themeConfig = useAuto
-        ? normalizeThemeConfig({
-            ...await richThemeForItem(item),
-            mode: "auto",
-            source: "suggested",
-            updatedAt: new Date().toISOString()
-          })
-        : normalizeThemeConfig({
-            ...body.themeConfig,
-            mode: body.themeConfig?.mode || "manual",
-            source: "manual",
-            updatedAt: new Date().toISOString()
-          });
-
-      if (body.saveForItem) {
-        if (useAuto) {
-          deleteThemePreset(item);
-        } else {
-          setThemePreset(item, themeConfig);
-        }
-      }
-
-      const themedItem = attachTheme({ ...item, themeConfig });
-      let state = currentState;
-
-      if (currentState && mediaItemKey(currentState) === mediaItemKey(themedItem)) {
-        currentState = {
-          ...currentState,
-          themeConfig,
-          updatedBy: "painel tema",
-          updatedAt: new Date().toISOString(),
-          revision: Date.now()
-        };
-
-        saveState();
-        broadcastState();
-        state = currentState;
-      }
-
-      savedItems = savedItems.map(entry => (
-        mediaItemKey(entry) === mediaItemKey(themedItem)
-          ? { ...entry, themeConfig }
-          : entry
-      ));
-      saveSavedItems();
-
-      sendJson(response, 200, {
-        ok: true,
-        state,
-        item: themedItem,
-        items: savedItems.map(decorateWithSeriesProgress)
-      });
-    } catch (error) {
-      sendJson(response, 400, { ok: false, error: error.message });
-    }
-    return;
-  }
-
   if (request.method === "POST" && url.pathname === "/api/overlay") {
     try {
       const body = await readJson(request);
-      let item = attachTheme(await hydrateMediaItem(body.item));
-      const storedTheme = savedThemes[mediaItemKey(item)];
-      if (!storedTheme && (!item.themeConfig || item.themeConfig.mode === "auto")) {
-        item = { ...item, themeConfig: await richThemeForItem(item) };
-      }
+      let item = await hydrateMediaItem(body.item);
       let suffix = cleanSuffix(body.suffix);
 
       if (item?.type === "tv") {
@@ -2574,8 +2385,7 @@ async function handleApi(request, response, url) {
           throw new Error("Use !tf seguido do nome do filme");
         }
 
-        let item = await findBestMedia("movie", parsed.title, parsed.year || "");
-        item = { ...item, themeConfig: await richThemeForItem(item) };
+        const item = await findBestMedia("movie", parsed.title, parsed.year || "");
         const state = updateOverlay(item, "", username);
 
         lastCommand = {
@@ -2619,7 +2429,6 @@ async function handleApi(request, response, url) {
           ? `EP${item.selectedEpisode} - T${item.selectedSeason}`
           : parsed.suffix || "";
 
-        if (!savedThemes[mediaItemKey(item)]) item = { ...item, themeConfig: await richThemeForItem(item) };
         const state = updateOverlay(item, suffix, username);
 
         lastCommand = {

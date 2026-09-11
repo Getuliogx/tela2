@@ -6,7 +6,7 @@
 <title>Painel do Overlay</title>
 <style>
 :root{color-scheme:dark;--bg:#09090d;--panel:#13131a;--panel2:#1a1a23;--line:#2b2b38;--text:#f4f4f7;--muted:#a4a4b2;--accent:#a855f7;--accent2:#7c3aed;--danger:#ef4444;--ok:#22c55e}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#1b1029 0,#09090d 42%);color:var(--text);font-family:Inter,Segoe UI,Arial,sans-serif;min-height:100vh}.wrap{width:min(1180px,calc(100% - 28px));margin:0 auto;padding:26px 0 60px}.top{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:22px}.brand h1{margin:0;font-size:clamp(24px,4vw,38px)}.brand p{margin:7px 0 0;color:var(--muted)}.status{padding:9px 13px;border:1px solid var(--line);background:#111118;border-radius:999px;color:var(--muted);font-size:13px}.status.ok{border-color:#245f38;color:#8ff0aa}.panel{background:rgba(19,19,26,.96);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.34);margin-bottom:18px}.panel h2{margin:0 0 15px;font-size:18px}.current{display:flex;align-items:center;gap:15px;min-height:86px}.current img{width:58px;height:82px;object-fit:cover;border-radius:9px;background:#23232d}.current .title{font-size:20px;font-weight:800}.current .meta{color:var(--muted);margin-top:5px}.grid-form{display:grid;grid-template-columns:150px 1fr 120px auto;gap:10px}.field{background:#0e0e14;border:1px solid var(--line);border-radius:11px;padding:12px 13px;color:var(--text);font:inherit;outline:none}.field:focus{border-color:var(--accent)}button{border:0;border-radius:11px;padding:12px 15px;font:inherit;font-weight:800;cursor:pointer}.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:white}.secondary{background:#262633;color:var(--text)}.danger{background:#3b171c;color:#ffb4bd}.small{padding:9px 11px;font-size:13px}.results,.saved{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:14px}.card{display:flex;gap:12px;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:11px;min-width:0}.poster-frame{position:relative;width:72px;height:105px;flex:0 0 auto;border-radius:8px;overflow:hidden;background:#252530}.poster-frame img{width:100%;height:100%;object-fit:cover;display:block}.poster-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:8px;text-align:center;background:linear-gradient(145deg,#2a1740,#111118);color:#fff;font-size:11px;font-weight:800;line-height:1.15}.current .poster-frame{width:58px;height:82px;border-radius:9px}.current .poster-frame img{width:100%;height:100%;object-fit:cover;display:block}.card-body{min-width:0;display:flex;flex-direction:column;flex:1}.card-title{font-weight:850;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-meta{color:var(--muted);font-size:13px;margin-top:4px}.card-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:auto;padding-top:9px}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#1b1029 0,#09090d 42%);color:var(--text);font-family:Inter,Segoe UI,Arial,sans-serif;min-height:100vh}.wrap{width:min(1180px,calc(100% - 28px));margin:0 auto;padding:26px 0 60px}.top{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:22px}.brand h1{margin:0;font-size:clamp(24px,4vw,38px)}.brand p{margin:7px 0 0;color:var(--muted)}.status{padding:9px 13px;border:1px solid var(--line);background:#111118;border-radius:999px;color:var(--muted);font-size:13px}.status.ok{border-color:#245f38;color:#8ff0aa}.panel{background:rgba(19,19,26,.96);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.34);margin-bottom:18px}.panel h2{margin:0 0 15px;font-size:18px}.current{display:flex;align-items:center;gap:15px;min-height:86px}.current img{width:58px;height:82px;object-fit:cover;border-radius:9px;background:#23232d}.current .title{font-size:20px;font-weight:800}.current .meta{color:var(--muted);margin-top:5px}.current-elements{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.current-element{font-size:11px;padding:5px 8px;border-radius:999px;background:#242431;border:1px solid #353546;color:#ddd}.current-elements-empty{font-size:11px;color:var(--muted);margin-top:7px}.grid-form{display:grid;grid-template-columns:150px 1fr 120px auto;gap:10px}.field{background:#0e0e14;border:1px solid var(--line);border-radius:11px;padding:12px 13px;color:var(--text);font:inherit;outline:none}.field:focus{border-color:var(--accent)}button{border:0;border-radius:11px;padding:12px 15px;font:inherit;font-weight:800;cursor:pointer}.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:white}.secondary{background:#262633;color:var(--text)}.danger{background:#3b171c;color:#ffb4bd}.small{padding:9px 11px;font-size:13px}.results,.saved{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:14px}.card{display:flex;gap:12px;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:11px;min-width:0}.poster-frame{position:relative;width:72px;height:105px;flex:0 0 auto;border-radius:8px;overflow:hidden;background:#252530}.poster-frame img{width:100%;height:100%;object-fit:cover;display:block}.poster-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:8px;text-align:center;background:linear-gradient(145deg,#2a1740,#111118);color:#fff;font-size:11px;font-weight:800;line-height:1.15}.current .poster-frame{width:58px;height:82px;border-radius:9px}.current .poster-frame img{width:100%;height:100%;object-fit:cover;display:block}.card-body{min-width:0;display:flex;flex-direction:column;flex:1}.card-title{font-weight:850;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-meta{color:var(--muted);font-size:13px;margin-top:4px}.card-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:auto;padding-top:9px}
 .series-card-controls{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
 .series-card-control{display:flex;flex-direction:column;gap:5px;min-width:0}
 .series-card-control>span{color:var(--muted);font-size:11px;font-weight:850;text-transform:uppercase;letter-spacing:.05em}
@@ -54,32 +54,6 @@
 .episode-auto-status.error{color:#ffb4bd}
 
 @media(max-width:760px){.episode-row{align-items:stretch}.episode-auto-status{width:100%;margin-left:0;padding-bottom:0}.stepper{grid-template-columns:44px minmax(82px,110px) 44px}.top{align-items:flex-start;flex-direction:column}.grid-form{grid-template-columns:1fr 1fr}.grid-form .query{grid-column:1/-1}.grid-form .search-btn{grid-column:1/-1}.row .password{max-width:none;flex:1}.results,.saved{grid-template-columns:1fr}}
-
-.theme-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.theme-col{display:flex;flex-direction:column;gap:10px}
-.theme-preview{min-height:118px;border-radius:16px;border:1px solid var(--line);padding:14px;background:linear-gradient(135deg,var(--theme-a,#a855f7),var(--theme-b,#7c3aed));position:relative;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
-.theme-preview:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 20% 20%,rgba(255,255,255,.16),transparent 34%),radial-gradient(circle at 80% 30%,rgba(255,255,255,.1),transparent 25%),linear-gradient(135deg,rgba(0,0,0,.16),rgba(0,0,0,.36));pointer-events:none}
-.theme-preview > *{position:relative;z-index:1}.theme-preview h3{margin:0 0 8px;font-size:16px}.theme-preview p{margin:0;color:rgba(255,255,255,.92);font-size:13px;line-height:1.35;max-width:90%}.theme-chip{display:inline-flex;align-items:center;gap:7px;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.15);padding:7px 11px;border-radius:999px;font-size:12px;font-weight:700;margin-bottom:10px}.theme-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.theme-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.theme-help{color:var(--muted);font-size:13px;line-height:1.45}.theme-target{font-size:13px;color:var(--muted);margin-top:8px}
-textarea.field{min-height:108px;resize:vertical}.field[type="color"]{padding:8px;height:46px}
-@media (max-width:900px){.theme-grid{grid-template-columns:1fr}}
-
-
-.theme-editor{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(320px,.75fr);gap:18px;align-items:start}
-.theme-control-card{background:#0e0e14;border:1px solid var(--line);border-radius:16px;padding:15px}
-.theme-heading-row{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}
-.theme-current{font-size:13px;color:#d8d8e0;background:#171720;border:1px solid var(--line);padding:7px 10px;border-radius:999px;max-width:60%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.theme-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.theme-field-label{display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:12px;font-weight:700}
-.theme-elements-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:15px 0 8px}.theme-elements-title strong{font-size:14px}.theme-elements-title span{color:var(--muted);font-size:12px}
-.theme-elements{display:flex;flex-wrap:wrap;gap:8px}
-.theme-element{appearance:none;border:1px solid #343443;background:#181820;color:#d8d8e1;border-radius:999px;padding:8px 11px;display:inline-flex;align-items:center;gap:7px;font-weight:750;font-size:12px;cursor:pointer;transition:.14s ease}
-.theme-element:hover{border-color:#55556a;transform:translateY(-1px)}.theme-element.selected{border-color:#b86cff;background:#2a173f;color:#fff;box-shadow:0 0 0 1px rgba(168,85,247,.18),0 0 18px rgba(168,85,247,.12)}
-.theme-element .ico{font-size:15px;line-height:1}.theme-color-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:13px}.theme-color-wrap{display:grid;grid-template-columns:46px 1fr;gap:9px;align-items:center;background:#111118;border:1px solid var(--line);border-radius:12px;padding:8px}.theme-color-wrap input[type=color]{width:46px;height:36px;padding:0;border:0;background:transparent}.theme-color-wrap span{font-size:12px;color:var(--muted)}
-.theme-actionbar{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}.theme-actionbar button{min-height:42px}.theme-actionbar .primary{flex:1;min-width:190px}
-.theme-preview-v2{min-height:245px;border-radius:18px;border:1px solid rgba(255,255,255,.12);position:relative;overflow:hidden;padding:18px;background:radial-gradient(circle at 82% 18%,var(--theme-a,#a855f7) 0,transparent 33%),radial-gradient(circle at 75% 92%,var(--theme-b,#334155) 0,transparent 42%),linear-gradient(135deg,#08090d,#15131d);box-shadow:0 18px 45px rgba(0,0,0,.28),inset 0 0 0 1px rgba(255,255,255,.04)}
-.theme-preview-v2:after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,rgba(255,255,255,.08),transparent 35%,rgba(255,255,255,.03) 58%,transparent);pointer-events:none}.theme-preview-v2>*{position:relative;z-index:1}.theme-preview-v2 h3{font-size:22px;margin:4px 0 8px}.theme-preview-v2 p{font-size:13px;line-height:1.45;color:#e6e6ec;margin:0 0 14px}.preview-elements{display:flex;flex-wrap:wrap;gap:8px}.preview-element{padding:8px 10px;border-radius:999px;background:rgba(0,0,0,.30);border:1px solid rgba(255,255,255,.14);font-size:12px;font-weight:800;display:inline-flex;gap:6px;align-items:center}.preview-mode{display:inline-flex;padding:6px 9px;border-radius:999px;background:rgba(0,0,0,.28);font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}.theme-info{margin-top:10px;color:var(--muted);font-size:12px;line-height:1.4}.theme-tip{margin-top:12px;padding:12px;border-radius:12px;background:#111118;border:1px solid var(--line);color:#bdbdca;font-size:12px;line-height:1.45}
-@media(max-width:900px){.theme-editor{grid-template-columns:1fr}.theme-current{max-width:100%}}@media(max-width:620px){.theme-fields,.theme-color-row{grid-template-columns:1fr}}
-
 </style>
 </head>
 <body>
@@ -143,71 +117,6 @@ textarea.field{min-height:108px;resize:vertical}.field[type="color"]{padding:8px
   <section class="panel">
     <div class="section-head"><h2>Títulos salvos</h2><span id="savedCount" class="count">0 salvos</span></div>
     <div id="saved" class="saved"><div class="empty">Nenhum título salvo.</div></div>
-  </section>
-
-
-  <section class="panel" id="themePanel">
-    <div class="section-head"><h2>Personalizar fundo do conteúdo</h2><span class="count">Muda na overlay na hora</span></div>
-    <div class="theme-editor">
-      <div class="theme-control-card">
-        <div class="theme-heading-row">
-          <strong>Fundo do conteúdo atual</strong>
-          <span id="themeTargetInfo" class="theme-current">Nenhum conteúdo</span>
-        </div>
-
-        <div class="theme-fields">
-          <label class="theme-field-label">Modo
-            <select id="themeMode" class="field">
-              <option value="auto">Automático pelo conteúdo</option>
-              <option value="manual">Manual</option>
-              <option value="off">Sem fundo temático</option>
-            </select>
-          </label>
-          <label class="theme-field-label">Estilo do cenário
-            <select id="themeStyle" class="field">
-              <option value="cinematic">Cinematográfico</option>
-              <option value="dreamy">Sonhador / mágico</option>
-              <option value="gothic">Sombrio / gótico</option>
-              <option value="playful">Colorido / pop</option>
-              <option value="natural">Natureza</option>
-              <option value="action">Ação / energia</option>
-              <option value="neon">Neon / futurista</option>
-              <option value="vintage">Vintage / época</option>
-            </select>
-          </label>
-          <label class="theme-field-label" style="grid-column:1/-1">Nome do tema
-            <input id="themeName" class="field" maxlength="60" placeholder="Ex.: Coraline, Rebelde, True Blood">
-          </label>
-        </div>
-
-        <input id="themeScene" type="hidden">
-        <input id="themeMotif" type="hidden">
-
-        <div class="theme-elements-title"><strong>Elementos reais que aparecem no fundo</strong><span>Marque quantos quiser — não desmarca sozinho</span></div>
-        <div id="themeElements" class="theme-elements"></div>
-
-        <div class="theme-color-row">
-          <label class="theme-color-wrap"><input id="themeAccent" type="color" value="#a855f7"><span>Cor principal</span></label>
-          <label class="theme-color-wrap"><input id="themeAccent2" type="color" value="#334155"><span>Cor secundária</span></label>
-        </div>
-
-        <label style="display:flex;align-items:center;gap:9px;margin-top:12px;color:#d7d7df;font-size:13px"><input id="themeSaveForItem" type="checkbox" checked> Guardar este fundo para este filme/série</label>
-
-        <div class="theme-actionbar">
-          <button id="themeSuggest" class="secondary" type="button">Escolher elementos pelo conteúdo</button>
-          <button id="themeApply" class="primary" type="button">Aplicar fundo agora</button>
-          <button id="themeReset" class="secondary" type="button">Restaurar automático</button>
-        </div>
-        <div class="theme-info">O automático usa título, descrição, gêneros e palavras-chave do conteúdo. No manual, você escolhe exatamente os elementos e as cores.</div>
-      </div>
-
-      <div>
-        <div id="themePreview" class="theme-preview-v2" style="--theme-a:#a855f7;--theme-b:#334155">
-          <span class="preview-mode">prévia</span><h3>Tema do conteúdo</h3><p>Escolha os elementos ou gere automaticamente.</p><div class="preview-elements"></div>
-        </div>
-        <div class="theme-tip"><b>Exemplo:</b> Coraline pode usar <b>botões + mansão + gatinho preto + lua</b>, com rosa e azul. Rebelde pode usar <b>colégio + música + estrelas + coração</b>.</div>
-      </div>
-    </div>
   </section>
 
   <section class="panel">
@@ -277,20 +186,6 @@ textarea.field{min-height:108px;resize:vertical}.field[type="color"]{padding:8px
   const saveUpnextButton = $("#saveUpnext");
   const testUpnextButton = $("#testUpnext");
   const upnextRuntimeStatusEl = $("#upnextRuntimeStatus");
-  const themeModeEl = $("#themeMode");
-  const themeStyleEl = $("#themeStyle");
-  const themeElementsEl = $("#themeElements");
-  const themeNameEl = $("#themeName");
-  const themeSceneEl = $("#themeScene");
-  const themeMotifEl = $("#themeMotif");
-  const themeAccentEl = $("#themeAccent");
-  const themeAccent2El = $("#themeAccent2");
-  const themeSaveForItemEl = $("#themeSaveForItem");
-  const themePreviewEl = $("#themePreview");
-  const themeTargetInfoEl = $("#themeTargetInfo");
-  const themeSuggestButton = $("#themeSuggest");
-  const themeApplyButton = $("#themeApply");
-  const themeResetButton = $("#themeReset");
 
   let saved = loadLocal();
   let upnext = null;
@@ -298,8 +193,6 @@ textarea.field{min-height:108px;resize:vertical}.field[type="color"]{padding:8px
   let episodeTimer = null;
   let episodeRequestSequence = 0;
   let syncingEpisodeControls = false;
-  let themeEditorDirty = false;
-  let themeEditorKey = "";
 
   passwordEl.value = localStorage.getItem(PASSWORD_KEY) || "";
   passwordEl.addEventListener("input", () => localStorage.setItem(PASSWORD_KEY, passwordEl.value));
@@ -308,134 +201,6 @@ textarea.field{min-height:108px;resize:vertical}.field[type="color"]{padding:8px
   function escapeHtml(value){return String(value||"").replace(/[&<>\"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"})[ch])}
   function loadLocal(){try{const value=JSON.parse(localStorage.getItem(LOCAL_KEY)||"[]");return Array.isArray(value)?value:[]}catch{return []}}
   function saveLocal(){localStorage.setItem(LOCAL_KEY,JSON.stringify(saved))}
-
-  const THEME_ELEMENT_OPTIONS=[
-    ["buttons","◉","Botões"],["mansion","⌂","Mansão"],["black-cat","●","Gatinho preto"],["tunnel","◎","Túnel"],
-    ["moon","☾","Lua"],["sun","☀","Sol"],["school","▦","Colégio"],["music","♫","Música"],
-    ["stars","✦","Estrelas"],["heart","♥","Coração"],["flowers","✿","Flores"],["maypole","✣","Mastro de flores"],
-    ["blood","◆","Sangue"],["fangs","∨","Presas"],["bamboo","┃","Bambu"],["mountains","▲","Montanhas"],
-    ["road","━","Estrada"],["fire","♨","Fogo"],["desert","∿","Deserto"],["magic","✧","Magia"],
-    ["lab","⚗","Laboratório"],["cells","◌","Células"],["syringe","╱","Seringa"],["forest","♣","Floresta"],
-    ["swamp","≋","Pântano"],["castle","♜","Castelo"],["city","▥","Cidade"],["rain","╱","Chuva"],
-    ["waves","≈","Mar"]
-  ];
-  const THEME_ELEMENT_MAP=Object.fromEntries(THEME_ELEMENT_OPTIONS.map(([key,icon,label])=>[key,{icon,label}]));
-
-  function normalizeTheme(theme={}){
-    const safeColor=value=>/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(String(value||"").trim())?String(value).trim():"#a855f7";
-    const rawElements=Array.isArray(theme.elements)?theme.elements:String(theme.elements||"").split(/[,;|]+/);
-    return {
-      mode:["auto","manual","off"].includes(String(theme.mode||""))?String(theme.mode):"manual",
-      style:["cinematic","dreamy","gothic","playful","natural","action","neon","vintage"].includes(String(theme.style||""))?String(theme.style):"cinematic",
-      name:String(theme.name||"").trim().slice(0,60),
-      scene:String(theme.scene||"").trim().slice(0,220),
-      motif:String(theme.motif||"").trim().slice(0,80),
-      elements:[...new Set(rawElements.map(v=>String(v||"").trim()).filter(Boolean))].slice(0,8),
-      accent:safeColor(theme.accent||"#a855f7"),
-      accent2:/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(String(theme.accent2||"").trim())?String(theme.accent2).trim():"#334155"
-    }
-  }
-
-  function renderThemeElementButtons(){
-    themeElementsEl.innerHTML=THEME_ELEMENT_OPTIONS.map(([key,icon,label])=>`<button type="button" class="theme-element" data-theme-element="${key}"><span class="ico">${icon}</span>${label}</button>`).join("")
-  }
-
-  function selectedThemeElements(){
-    return [...themeElementsEl.querySelectorAll(".theme-element.selected")].map(button=>button.dataset.themeElement)
-  }
-
-  function setSelectedThemeElements(elements){
-    const selected=new Set(Array.isArray(elements)?elements:[]);
-    themeElementsEl.querySelectorAll(".theme-element").forEach(button=>button.classList.toggle("selected",selected.has(button.dataset.themeElement)))
-  }
-
-  function labelsForElements(elements){
-    return (elements||[]).map(key=>THEME_ELEMENT_MAP[key]?.label||key)
-  }
-
-  function themeFromItem(item){return normalizeTheme(item?.themeConfig||{})}
-
-  function defaultThemePreview(){
-    themeEditorKey="";
-    themeEditorDirty=false;
-    fillThemeForm({mode:"manual",style:"cinematic",name:"",elements:[],accent:"#a855f7",accent2:"#334155"})
-    themeTargetInfoEl.textContent="Nenhum conteúdo"
-  }
-
-  function markThemeDirty(){
-    themeEditorDirty=true;
-    if(themeModeEl.value!=="off")themeModeEl.value="manual";
-    renderThemePreview(themeFormValue())
-  }
-
-  function themeFormValue(){
-    const elements=selectedThemeElements();
-    const labels=labelsForElements(elements);
-    return normalizeTheme({
-      mode:themeModeEl.value,
-      style:themeStyleEl.value,
-      name:themeNameEl.value,
-      elements,
-      scene:labels.join(", "),
-      motif:labels.join(" + "),
-      accent:themeAccentEl.value,
-      accent2:themeAccent2El.value
-    })
-  }
-
-  function renderThemePreview(theme){
-    const safe=normalizeTheme(theme);
-    themePreviewEl.style.setProperty("--theme-a",safe.accent);
-    themePreviewEl.style.setProperty("--theme-b",safe.accent2);
-    const title=safe.name||(safe.mode==="auto"?"Tema automático":safe.mode==="off"?"Sem fundo temático":"Tema manual");
-    const elements=safe.elements||[];
-    const chips=elements.length?elements.map(key=>{const meta=THEME_ELEMENT_MAP[key]||{icon:"•",label:key};return `<span class="preview-element"><span>${meta.icon}</span>${escapeHtml(meta.label)}</span>`}).join(""):`<span class="preview-element">Sem elementos selecionados</span>`;
-    const description=safe.scene||labelsForElements(elements).join(", ")||"Escolha os elementos ou gere automaticamente.";
-    themePreviewEl.innerHTML=`<span class="preview-mode">${escapeHtml(safe.mode)}</span><h3>${escapeHtml(title)}</h3><p>${escapeHtml(description)}</p><div class="preview-elements">${chips}</div>`
-  }
-
-  function fillThemeForm(theme,item=null){
-    const safe=normalizeTheme(theme||{});
-    themeModeEl.value=safe.mode;
-    themeStyleEl.value=safe.style;
-    themeNameEl.value=safe.name;
-    themeAccentEl.value=safe.accent;
-    themeAccent2El.value=safe.accent2;
-    themeSceneEl.value=safe.scene;
-    themeMotifEl.value=safe.motif;
-    setSelectedThemeElements(safe.elements);
-    renderThemePreview(safe);
-    themeTargetInfoEl.textContent=item?(item.displayTitle||item.title):"Nenhum conteúdo";
-  }
-
-  async function requestThemeSuggestion(){
-    if(!currentOverlayItem){notify("Selecione um conteúdo primeiro",true);return}
-    themeSuggestButton.disabled=true;
-    try{
-      const payload=await api("/api/theme/suggest",{method:"POST",body:JSON.stringify({item:currentOverlayItem})});
-      fillThemeForm({...payload.theme,mode:"manual"},currentOverlayItem);
-      themeEditorKey=keyOf(currentOverlayItem);
-      themeEditorDirty=true;
-      notify("Fundo sugerido. Clique em Aplicar fundo agora.")
-    }catch(error){notify(error.message,true)}finally{themeSuggestButton.disabled=false}
-  }
-
-  async function applyTheme(reset=false){
-    if(!currentOverlayItem){notify("Selecione um conteúdo primeiro",true);return}
-    themeApplyButton.disabled=true;themeResetButton.disabled=true;
-    try{
-      const theme=reset?{mode:"auto"}:themeFormValue();
-      const payload=await api("/api/theme/apply",{method:"POST",body:JSON.stringify({item:currentOverlayItem,themeConfig:theme,mode:reset?"auto":theme.mode,reset,saveForItem:themeSaveForItemEl.checked})});
-      if(Array.isArray(payload.items))mergeSaved(payload.items);
-      const fresh=payload.state||payload.item||currentOverlayItem;
-      themeEditorKey=keyOf(fresh);
-      themeEditorDirty=false;
-      renderCurrent(fresh);
-      fillThemeForm(fresh.themeConfig||theme,fresh);
-      notify(reset?"Fundo automático restaurado":"Fundo aplicado na overlay")
-    }catch(error){notify(error.message,true)}finally{themeApplyButton.disabled=false;themeResetButton.disabled=false}
-  }
-
   function mergeSaved(items){const map=new Map();for(const item of [...saved,...items]){if(item&&item.tmdbId)map.set(keyOf(item),item)}saved=[...map.values()];saveLocal();renderSaved()}
   function headers(){return {"Content-Type":"application/json","X-Admin-Password":passwordEl.value}}
   function notify(message,error=false){noticeEl.textContent=message;noticeEl.className="notice show"+(error?" error":"");clearTimeout(notify.timer);notify.timer=setTimeout(()=>noticeEl.className="notice",2800)}
@@ -745,23 +510,15 @@ textarea.field{min-height:108px;resize:vertical}.field[type="color"]{padding:8px
     if(!item){
       currentEl.innerHTML=`<div class="empty">Nenhum título enviado ainda.</div>`;
       syncEpisodeControls(null);
-      defaultThemePreview();
       return
     }
 
-    currentEl.innerHTML=`${posterHtml(item)}<div><div class="title">${escapeHtml(item.displayTitle||item.title)}</div><div class="meta">${escapeHtml(item.typeLabel||"")}${item.year?" • "+escapeHtml(item.year):""}</div></div>`;
-    syncEpisodeControls(item);
-
-    const incomingKey=keyOf(item);
-    const changedTitle=incomingKey!==themeEditorKey;
-    themeTargetInfoEl.textContent=item.displayTitle||item.title;
-
-    /* Não apaga/desmarca o que a pessoa está escolhendo a cada refresh de /state. */
-    if(changedTitle||!themeEditorDirty){
-      themeEditorKey=incomingKey;
-      themeEditorDirty=false;
-      fillThemeForm(themeFromItem(item),item)
-    }
+    const elements=Array.isArray(item.contentElements)?item.contentElements:[];
+    const elementsHtml=elements.length
+      ? `<div class="current-elements">${elements.map(element=>`<span class="current-element">${escapeHtml(element.label||element.id)}</span>`).join("")}</div>`
+      : `<div class="current-elements-empty">Nenhum elemento específico detectado — não vou inventar elemento errado.</div>`;
+    currentEl.innerHTML=`${posterHtml(item)}<div><div class="title">${escapeHtml(item.displayTitle||item.title)}</div><div class="meta">${escapeHtml(item.typeLabel||"")}${item.year?" • "+escapeHtml(item.year):""}</div>${elementsHtml}</div>`;
+    syncEpisodeControls(item)
   }
 
   function normalizePositiveInteger(input){
@@ -1042,21 +799,6 @@ textarea.field{min-height:108px;resize:vertical}.field[type="color"]{padding:8px
     }catch{}
   });
   $("#refreshState").addEventListener("click",refreshState);
-  themeModeEl.addEventListener("change",()=>{themeEditorDirty=true;renderThemePreview(themeFormValue())});
-  themeStyleEl.addEventListener("change",markThemeDirty);
-  themeNameEl.addEventListener("input",markThemeDirty);
-  themeAccentEl.addEventListener("input",markThemeDirty);
-  themeAccent2El.addEventListener("input",markThemeDirty);
-  themeSaveForItemEl.addEventListener("change",()=>{themeEditorDirty=true});
-  themeElementsEl.addEventListener("click",event=>{
-    const button=event.target.closest("[data-theme-element]");
-    if(!button)return;
-    button.classList.toggle("selected");
-    markThemeDirty()
-  });
-  themeSuggestButton.addEventListener("click",requestThemeSuggestion);
-  themeApplyButton.addEventListener("click",()=>applyTheme(false));
-  themeResetButton.addEventListener("click",()=>applyTheme(true));
 
   saveUpnextButton.addEventListener("click",saveUpnextConfig);
 
@@ -1122,7 +864,6 @@ textarea.field{min-height:108px;resize:vertical}.field[type="color"]{padding:8px
     }
   });
 
-  renderThemeElementButtons();
   renderSaved();refreshState();loadServerSaved();loadUpnext();refreshUpnextRuntime();setInterval(refreshState,5000);setInterval(refreshUpnextRuntime,2000);
 })();
 </script>
