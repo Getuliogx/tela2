@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: tela2
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /ping
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.0
+      - key: TWITCH_CHANNEL
+        value: icarolinaporto
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: TMDB_BEARER
+        sync: false
+      - key: TMDB_API_KEY
+        sync: false
