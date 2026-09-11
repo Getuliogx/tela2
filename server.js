@@ -384,283 +384,6 @@ function currentUpNextView(now = Date.now()) {
   };
 }
 
-
-function normalizeElementText(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
-const CONTENT_ELEMENT_PRESETS = [
-  { test: /\bcoraline\b/, ids: ["button","cat","house","tunnel","moon","key"] },
-  { test: /\bmidsommar\b/, ids: ["flower","maypole","sun","house","field"] },
-  { test: /\brebelde\b/, ids: ["school","music","star","heart"] },
-  { test: /\btrue blood\b/, ids: ["vampire","blood","moon","mansion","fangs"] },
-  { test: /\bshrek\b/, ids: ["ogre","swamp","castle","donkey","star"] },
-  { test: /\bkung fu panda\b/, ids: ["panda","bamboo","mountain","temple","sun"] },
-  { test: /\bmad max\b/, ids: ["car","road","fire","desert","skull"] },
-  { test: /\b(?:a )?substancia\b|\bthe substance\b/, ids: ["syringe","cell","lab","blood","mirror"] },
-  { test: /\bharry potter\b/, ids: ["wand","castle","owl","book","star"] },
-  { test: /\bstar wars\b/, ids: ["spaceship","planet","star","laser"] },
-  { test: /\bjurassic (?:park|world)\b/, ids: ["dinosaur","forest","mountain","car"] },
-  { test: /\bjaws\b|\btubarao\b/, ids: ["shark","ocean","boat","wave"] },
-  { test: /\btitanic\b/, ids: ["ship","ocean","star","heart"] },
-  { test: /\bthe matrix\b|\bmatrix\b/, ids: ["code","glasses","city","phone"] },
-  { test: /\bbatman\b/, ids: ["bat","city","moon"] },
-  { test: /\bspider[- ]?man\b|\bhomem[- ]aranha\b/, ids: ["spider","web","city"] },
-  { test: /\bfrozen\b/, ids: ["snow","castle","mountain","star"] },
-  { test: /\bcoco\b/, ids: ["guitar","skull","flower","music"] },
-  { test: /\blord of the rings\b|\bsenhor dos aneis\b|\bthe hobbit\b|\bo hobbit\b/, ids: ["ring","sword","mountain","castle"] },
-  { test: /\balien\b/, ids: ["alien","spaceship","planet","star"] },
-  { test: /\bterminator\b|\bo exterminador\b/, ids: ["robot","city","fire"] },
-  { test: /\bback to the future\b|\bde volta para o futuro\b/, ids: ["car","clock","lightning","road"] },
-  { test: /\bpirates of the caribbean\b|\bpiratas do caribe\b/, ids: ["ship","ocean","skull","sword"] },
-  { test: /\bit\b.*\b(?:chapter|capitulo)\b|\bit a coisa\b|\ba coisa\b/, ids: ["balloon","clown","rain"] },
-  { test: /\bscream\b|\bpanico\b/, ids: ["mask","phone","blood"] },
-  { test: /\bavatar\b/, ids: ["forest","mountain","moon","alien"] },
-  { test: /\boppenheimer\b/, ids: ["atom","fire","lab","clock"] },
-  { test: /\bdune\b|\bduna\b/, ids: ["desert","planet","worm","moon"] },
-  { test: /\bwonka\b|\bcharlie.*chocolate\b/, ids: ["candy","hat","star"] }
-];
-
-const CONTENT_ELEMENT_RULES = [
-  ["button", /\b(button|buttons|botao|botoes)\b/],
-  ["cat", /\b(cat|black cat|gato|gatinho|felino)\b/],
-  ["dog", /\b(dog|cao|cachorro)\b/],
-  ["house", /\b(house|home|casa|residence|lar)\b/],
-  ["mansion", /\b(mansion|mansao|manor)\b/],
-  ["tunnel", /\b(tunnel|tunel|passage|passagem)\b/],
-  ["door", /\b(door|porta|portal)\b/],
-  ["key", /\b(key|chave)\b/],
-  ["mirror", /\b(mirror|espelho)\b/],
-  ["moon", /\b(moon|lua|lunar)\b/],
-  ["sun", /\b(sun|sol|solar)\b/],
-  ["star", /\b(star|stars|estrela|estrelas)\b/],
-  ["school", /\b(school|college|colegio|escola|high school)\b/],
-  ["music", /\b(music|musical|song|singing|musica|cantor|banda)\b/],
-  ["heart", /\b(heart|love|romance|coracao|amor)\b/],
-  ["flower", /\b(flower|flowers|floral|flor|flores)\b/],
-  ["maypole", /\b(maypole|mastro|midsummer|midsommar)\b/],
-  ["blood", /\b(blood|bloody|sangue|gore)\b/],
-  ["fangs", /\b(fang|fangs|presa|presas)\b/],
-  ["vampire", /\b(vampire|vampires|vampiro|vampiros)\b/],
-  ["bat", /\b(bat|bats|morcego|morcegos)\b/],
-  ["bamboo", /\b(bamboo|bambu)\b/],
-  ["panda", /\b(panda)\b/],
-  ["mountain", /\b(mountain|mountains|montanha|montanhas)\b/],
-  ["temple", /\b(temple|templo|monastery|mosteiro)\b/],
-  ["road", /\b(road|highway|estrada|rodovia)\b/],
-  ["car", /\b(car|cars|vehicle|automobile|carro|veiculo|corrida|race)\b/],
-  ["fire", /\b(fire|flame|flames|fogo|chama|explosion|explosao)\b/],
-  ["desert", /\b(desert|wasteland|deserto)\b/],
-  ["lab", /\b(lab|laboratory|laboratorio|experiment|experimento)\b/],
-  ["cell", /\b(cell|cells|celula|celulas|organic|organico)\b/],
-  ["syringe", /\b(syringe|injection|needle|seringa|injecao|agulha)\b/],
-  ["forest", /\b(forest|woods|jungle|floresta|selva)\b/],
-  ["swamp", /\b(swamp|pântano|pantano|bog)\b/],
-  ["castle", /\b(castle|palace|castelo|palacio)\b/],
-  ["city", /\b(city|metropolis|cidade|urban|urbano)\b/],
-  ["rain", /\b(rain|storm|chuva|tempestade)\b/],
-  ["ocean", /\b(ocean|sea|mar|oceano)\b/],
-  ["ship", /\b(ship|navio|liner|transatlantic)\b/],
-  ["boat", /\b(boat|barco|yacht)\b/],
-  ["wave", /\b(wave|waves|onda|ondas)\b/],
-  ["shark", /\b(shark|tubarao)\b/],
-  ["dinosaur", /\b(dinosaur|dinossauro|tyrannosaurus|raptor|t-rex)\b/],
-  ["spaceship", /\b(spacecraft|spaceship|starship|nave|space ship)\b/],
-  ["planet", /\b(planet|planeta|space|espaco)\b/],
-  ["alien", /\b(alien|extraterrestrial|extraterrestre)\b/],
-  ["robot", /\b(robot|android|cyborg|robo|ciborgue)\b/],
-  ["wand", /\b(wand|magic wand|varinha|wizard|witch|bruxo|bruxa|magic|magia)\b/],
-  ["owl", /\b(owl|coruja)\b/],
-  ["book", /\b(book|books|livro|livros)\b/],
-  ["sword", /\b(sword|blade|espada)\b/],
-  ["ring", /\b(ring|rings|anel|aneis)\b/],
-  ["dragon", /\b(dragon|dragao)\b/],
-  ["snow", /\b(snow|ice|neve|gelo|frozen)\b/],
-  ["skull", /\b(skull|skeleton|caveira|esqueleto)\b/],
-  ["guitar", /\b(guitar|violao|guitarra)\b/],
-  ["mask", /\b(mask|masked|mascara)\b/],
-  ["phone", /\b(phone|telephone|telefone|celular)\b/],
-  ["spider", /\b(spider|aranha)\b/],
-  ["web", /\b(web|webs|teia|teias)\b/],
-  ["code", /\b(computer|code|matrix|codigo|virtual reality|realidade virtual)\b/],
-  ["glasses", /\b(glasses|sunglasses|oculos)\b/],
-  ["clock", /\b(clock|time travel|relogio|viagem no tempo|time machine)\b/],
-  ["lightning", /\b(lightning|thunder|raio|relampago)\b/],
-  ["balloon", /\b(balloon|balao)\b/],
-  ["clown", /\b(clown|palhaco)\b/],
-  ["atom", /\b(atom|atomic|nuclear|atomo|nuclear)\b/],
-  ["worm", /\b(worm|sandworm|verme|minhoca)\b/],
-  ["candy", /\b(candy|chocolate|sweet|doce|doces)\b/],
-  ["hat", /\b(hat|chapeu)\b/],
-  ["ogre", /\b(ogre|ogro)\b/],
-  ["donkey", /\b(donkey|burro)\b/],
-  ["field", /\b(field|meadow|campo|prado)\b/],
-  ["laser", /\b(laser|lightsaber|sabre de luz)\b/]
-];
-
-function elementPresetForTitle(title) {
-  const normalized = normalizeElementText(title);
-  return CONTENT_ELEMENT_PRESETS.find(entry => entry.test.test(normalized))?.ids || [];
-}
-
-function elementLabels(ids) {
-  const labels = {
-    button:"Botões",cat:"Gato preto",dog:"Cachorro",house:"Casa",mansion:"Mansão",tunnel:"Túnel",door:"Porta",key:"Chave",mirror:"Espelho",moon:"Lua",sun:"Sol",star:"Estrelas",school:"Colégio",music:"Música",heart:"Coração",flower:"Flores",maypole:"Mastro de flores",blood:"Sangue",fangs:"Presas",vampire:"Vampiro",bat:"Morcegos",bamboo:"Bambu",panda:"Panda",mountain:"Montanhas",temple:"Templo",road:"Estrada",car:"Carro",fire:"Fogo",desert:"Deserto",lab:"Laboratório",cell:"Células",syringe:"Seringa",forest:"Floresta",swamp:"Pântano",castle:"Castelo",city:"Cidade",rain:"Chuva",ocean:"Mar",ship:"Navio",boat:"Barco",wave:"Ondas",shark:"Tubarão",dinosaur:"Dinossauro",spaceship:"Nave",planet:"Planeta",alien:"Alien",robot:"Robô",wand:"Varinha",owl:"Coruja",book:"Livro",sword:"Espada",ring:"Anel",dragon:"Dragão",snow:"Neve",skull:"Caveira",guitar:"Violão",mask:"Máscara",phone:"Telefone",spider:"Aranha",web:"Teia",code:"Código",glasses:"Óculos",clock:"Relógio",lightning:"Raio",balloon:"Balão",clown:"Palhaço",atom:"Átomo",worm:"Verme de areia",candy:"Doces",hat:"Chapéu",ogre:"Ogro",donkey:"Burro",field:"Campo",laser:"Sabre de luz"
-  };
-  return ids.map(id => ({ id, label: labels[id] || id }));
-}
-
-
-function sceneImageScore(image) {
-  if (!image || !image.file_path) return -1;
-  const width = Number(image.width || 0);
-  const height = Number(image.height || 0);
-  const aspect = Number(image.aspect_ratio || (height ? width / height : 0));
-  const wideBonus = aspect >= 1.45 ? 50 : aspect >= 1.2 ? 10 : -100;
-  return (
-    wideBonus +
-    Number(image.vote_average || 0) * 8 +
-    Math.min(Number(image.vote_count || 0), 100) +
-    Math.min(width, 3000) / 120
-  );
-}
-
-function sceneUrlsFromImages(images, limit = 6) {
-  const seen = new Set();
-  return (Array.isArray(images) ? images : [])
-    .filter(image => image && image.file_path)
-    .sort((a, b) => sceneImageScore(b) - sceneImageScore(a))
-    .map(image => imageUrl(image.file_path, "w780"))
-    .filter(url => {
-      if (!url || seen.has(url)) return false;
-      seen.add(url);
-      return true;
-    })
-    .slice(0, limit);
-}
-
-async function fetchSceneImages(item, details = null) {
-  const scenes = [];
-  const push = values => {
-    for (const url of values || []) {
-      if (url && !scenes.includes(url)) scenes.push(url);
-      if (scenes.length >= 6) break;
-    }
-  };
-
-  /*
-    Para séries, quando o episódio atual é conhecido, tenta primeiro
-    as imagens daquele episódio. Assim o fundo pode ser uma cena do EP
-    em vez de uma arte genérica da série.
-  */
-  if (item.type === "tv") {
-    const season = Number(
-      item.selectedSeason || item.savedSeason || item.season || 0
-    );
-    const episode = Number(
-      item.selectedEpisode || item.savedEpisode || item.episode || 0
-    );
-
-    if (season > 0 && episode > 0) {
-      try {
-        const episodeUrl = new URL(
-          `https://api.themoviedb.org/3/tv/${Number(item.tmdbId)}/season/${season}/episode/${episode}/images`
-        );
-        episodeUrl.searchParams.set("include_image_language", "pt,en,null");
-        const episodeImages = await fetchTmdbJson(episodeUrl);
-        push(sceneUrlsFromImages(
-          episodeImages?.stills || episodeImages?.backdrops || [],
-          4
-        ));
-      } catch (error) {
-        console.error(`[cenas-episodio] tv:${item.tmdbId}:T${season}E${episode} - ${error.message}`);
-      }
-    }
-  }
-
-  if (scenes.length < 4) {
-    let images = details?.images;
-
-    if (!images) {
-      try {
-        const imagesUrl = new URL(
-          `https://api.themoviedb.org/3/${item.type}/${Number(item.tmdbId)}/images`
-        );
-        imagesUrl.searchParams.set("include_image_language", "pt,en,null");
-        images = await fetchTmdbJson(imagesUrl);
-      } catch (error) {
-        console.error(`[cenas] ${item.type}:${item.tmdbId} - ${error.message}`);
-      }
-    }
-
-    push(sceneUrlsFromImages(images?.backdrops || [], 6));
-  }
-
-  if (scenes.length === 0 && details?.backdrop_path) {
-    push([imageUrl(details.backdrop_path, "w780")]);
-  }
-
-  return scenes.slice(0, 6);
-}
-
-async function enrichContentElements(item) {
-  if (!validMediaItem(item)) return item;
-
-  const titlePreset = elementPresetForTitle(item.title || item.baseTitle || "");
-  let details = null;
-  let keywords = [];
-  let genres = [];
-  let overview = String(item.overview || "");
-  let sceneImages = Array.isArray(item.sceneImages) ? item.sceneImages.filter(Boolean) : [];
-
-  try {
-    const url = new URL(`https://api.themoviedb.org/3/${item.type}/${Number(item.tmdbId)}`);
-    url.searchParams.set("language", "pt-BR");
-    url.searchParams.set("append_to_response", "keywords,images");
-    url.searchParams.set("include_image_language", "pt,en,null");
-    details = await fetchTmdbJson(url);
-    overview = String(details?.overview || overview || "");
-    genres = Array.isArray(details?.genres) ? details.genres.map(g => String(g?.name || "")).filter(Boolean) : [];
-    const rawKeywords = details?.keywords?.keywords || details?.keywords?.results || [];
-    keywords = Array.isArray(rawKeywords) ? rawKeywords.map(k => String(k?.name || "")).filter(Boolean) : [];
-  } catch (error) {
-    console.error(`[elementos] ${item.type}:${item.tmdbId} - ${error.message}`);
-  }
-
-  try {
-    const foundScenes = await fetchSceneImages(item, details);
-    if (foundScenes.length) sceneImages = foundScenes;
-  } catch (error) {
-    console.error(`[cenas] ${item.type}:${item.tmdbId} - ${error.message}`);
-  }
-
-  const corpus = normalizeElementText([
-    item.title,
-    item.originalTitle,
-    overview,
-    ...keywords
-  ].filter(Boolean).join(" | "));
-
-  const detected = [];
-  for (const [id, pattern] of CONTENT_ELEMENT_RULES) {
-    if (pattern.test(corpus)) detected.push(id);
-  }
-
-  const ids = [...new Set([...titlePreset, ...detected])].slice(0, 7);
-
-  return {
-    ...item,
-    overview,
-    genres,
-    keywords,
-    contentElements: elementLabels(ids),
-    sceneImages
-  };
-}
-
 function validMediaItem(value) {
   return Boolean(
     value &&
@@ -1071,28 +794,26 @@ async function hydrateMediaItem(item) {
     return item;
   }
 
-  let hydrated = item;
-
-  if (!String(item.poster || "").trim()) {
-    const tmdbItem = {
-      id: Number(item.tmdbId),
-      title: item.type === "movie" ? item.title : undefined,
-      name: item.type === "tv" ? item.title : undefined,
-      original_title: item.type === "movie" ? item.originalTitle : undefined,
-      original_name: item.type === "tv" ? item.originalTitle : undefined,
-      release_date: item.type === "movie" && item.year ? `${item.year}-01-01` : "",
-      first_air_date: item.type === "tv" && item.year ? `${item.year}-01-01` : "",
-      poster_path: "",
-      backdrop_path: ""
-    };
-
-    hydrated = {
-      ...item,
-      poster: await resolvePoster(tmdbItem, item.type)
-    };
+  if (String(item.poster || "").trim()) {
+    return item;
   }
 
-  return enrichContentElements(hydrated);
+  const tmdbItem = {
+    id: Number(item.tmdbId),
+    title: item.type === "movie" ? item.title : undefined,
+    name: item.type === "tv" ? item.title : undefined,
+    original_title: item.type === "movie" ? item.originalTitle : undefined,
+    original_name: item.type === "tv" ? item.originalTitle : undefined,
+    release_date: item.type === "movie" && item.year ? `${item.year}-01-01` : "",
+    first_air_date: item.type === "tv" && item.year ? `${item.year}-01-01` : "",
+    poster_path: "",
+    backdrop_path: ""
+  };
+
+  return {
+    ...item,
+    poster: await resolvePoster(tmdbItem, item.type)
+  };
 }
 
 async function mapLimit(items, limit, mapper) {
@@ -1613,8 +1334,7 @@ async function tmdbSearch(type, query, year = "") {
 
   const hydrated = await mapLimit(selected, 5, async entry => {
     const poster = await resolvePoster(entry.item, type);
-    const media = mediaFromTmdb(entry.item, type, poster);
-    return enrichContentElements(media);
+    return mediaFromTmdb(entry.item, type, poster);
   });
 
   return hydrated.map(decorateWithSeriesProgress);
@@ -1698,10 +1418,6 @@ function updateOverlay(item, suffix = "", updatedBy = "painel") {
     typeLabel: item.typeLabel || typeLabel(item.type),
     poster: String(item.poster || ""),
     overview: String(item.overview || ""),
-    genres: Array.isArray(item.genres) ? item.genres : [],
-    keywords: Array.isArray(item.keywords) ? item.keywords : [],
-    contentElements: Array.isArray(item.contentElements) ? item.contentElements : [],
-    sceneImages: Array.isArray(item.sceneImages) ? item.sceneImages.filter(Boolean).slice(0, 6) : [],
     updatedBy,
     updatedAt: new Date().toISOString()
   };
