@@ -1,0 +1,20 @@
+{
+  "tv:1": {
+    "episode": 2,
+    "season": 2,
+    "episodeCount": 2,
+    "title": "Elite",
+    "year": "2018",
+    "poster": "",
+    "updatedAt": "2026-09-11T09:30:06.362Z"
+  },
+  "tv:2": {
+    "episode": 7,
+    "season": 3,
+    "episodeCount": 7,
+    "title": "Dark",
+    "year": "2017",
+    "poster": "",
+    "updatedAt": "2026-09-11T09:30:06.362Z"
+  }
+}

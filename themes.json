@@ -1,0 +1,12 @@
+{
+  "movie:42": {
+    "mode": "manual",
+    "name": "Coraline manual",
+    "scene": "botões, mansão cor-de-rosa e gatinho",
+    "motif": "botões",
+    "accent": "#cf7aa9",
+    "accent2": "#355c7d",
+    "source": "manual",
+    "updatedAt": "2026-09-11T09:30:22.272Z"
+  }
+}

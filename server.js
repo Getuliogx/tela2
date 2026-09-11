@@ -24,11 +24,13 @@ const STATE_FILE = path.join(__dirname, "state.json");
 const SAVED_FILE = path.join(__dirname, "saved.json");
 const PROGRESS_FILE = path.join(__dirname, "series-progress.json");
 const UPNEXT_FILE = path.join(__dirname, "upnext.json");
+const THEMES_FILE = path.join(__dirname, "themes.json");
 
 let currentState = loadState();
 let savedItems = loadSavedItems();
 let seriesProgress = loadSeriesProgress();
 let upNext = loadUpNext();
+let savedThemes = loadThemePresets();
 let ircSocket = null;
 let ircBuffer = "";
 let ircNickname = "";
@@ -70,12 +72,16 @@ function validState(value) {
 
 function loadState() {
   const value = loadJson(STATE_FILE, null);
-  return validState(value) ? value : null;
+  return validState(value)
+    ? { ...value, themeConfig: normalizeThemeConfig(value.themeConfig || suggestThemeForItem(value)) }
+    : null;
 }
 
 function loadSavedItems() {
   const value = loadJson(SAVED_FILE, []);
-  return Array.isArray(value) ? value.filter(validMediaItem).slice(0, 200) : [];
+  return Array.isArray(value)
+    ? value.filter(validMediaItem).slice(0, 200).map(attachTheme)
+    : [];
 }
 
 function loadSeriesProgress() {
@@ -384,6 +390,276 @@ function currentUpNextView(now = Date.now()) {
   };
 }
 
+
+function normalizeCompare(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function cleanThemeText(value, max = 180) {
+  return String(value || "")
+    .replace(/[<>\r\n]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+}
+
+function normalizeThemeColor(value, fallback) {
+  const color = String(value || "").trim();
+  return /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(color)
+    ? color
+    : fallback;
+}
+
+function normalizeThemeMode(value) {
+  const mode = String(value || "").trim().toLowerCase();
+  return mode === "manual" || mode === "off" ? mode : "auto";
+}
+
+function normalizeThemeConfig(value, fallback = null) {
+  const source = value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : (fallback && typeof fallback === "object" ? fallback : {});
+
+  return {
+    mode: normalizeThemeMode(source.mode || "auto"),
+    name: cleanThemeText(source.name || "", 60),
+    scene: cleanThemeText(source.scene || "", 220),
+    motif: cleanThemeText(source.motif || "", 80),
+    accent: normalizeThemeColor(source.accent, "#a855f7"),
+    accent2: normalizeThemeColor(source.accent2, "#7c3aed"),
+    source: cleanThemeText(source.source || "manual", 24) || "manual",
+    updatedAt: String(source.updatedAt || "")
+  };
+}
+
+function mediaItemKey(item) {
+  return item && (item.type === "movie" || item.type === "tv") && Number(item.tmdbId) > 0
+    ? `${item.type}:${Number(item.tmdbId)}`
+    : "";
+}
+
+function loadThemePresets() {
+  const value = loadJson(THEMES_FILE, {});
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  const cleaned = {};
+
+  for (const [key, theme] of Object.entries(value)) {
+    if (/^(movie|tv):\d+$/.test(key)) {
+      cleaned[key] = normalizeThemeConfig(theme);
+    }
+  }
+
+  return cleaned;
+}
+
+function saveThemePresets() {
+  writeJson(THEMES_FILE, savedThemes);
+}
+
+function presetTheme(fields) {
+  return normalizeThemeConfig({
+    mode: "auto",
+    source: "suggested",
+    ...fields,
+    updatedAt: new Date().toISOString()
+  });
+}
+
+function suggestThemeForItem(item) {
+  const title = normalizeCompare(item?.baseTitle || item?.title || "");
+  const overview = normalizeCompare(item?.overview || "");
+  const text = `${title} ${overview}`.trim();
+
+  if (/\bcoraline\b/.test(title)) {
+    return presetTheme({
+      name: "Coraline",
+      scene: "botões, mansão cor-de-rosa, túnel mágico, lua azul e gatinho preto",
+      motif: "botões e gatinho",
+      accent: "#cf7aa9",
+      accent2: "#355c7d"
+    });
+  }
+
+  if (/mad max/.test(title)) {
+    return presetTheme({
+      name: "Deserto pós-apocalíptico",
+      scene: "deserto, ferragens, fogo, tempestade de poeira e velocidade",
+      motif: "chamas e ferragens",
+      accent: "#d46b1f",
+      accent2: "#7f2312"
+    });
+  }
+
+  if (/kung fu panda/.test(title)) {
+    return presetTheme({
+      name: "Kung Fu Panda",
+      scene: "bambu, montanhas, sol dourado, folhas ao vento e energia kung fu",
+      motif: "bambu e montanhas",
+      accent: "#6f9b33",
+      accent2: "#d39a25"
+    });
+  }
+
+  if (/true blood/.test(title)) {
+    return presetTheme({
+      name: "Gótico sobrenatural",
+      scene: "lua vermelha, mansão gótica, névoa, rosas escuras e gotas de sangue",
+      motif: "lua e sangue",
+      accent: "#8e0d22",
+      accent2: "#2f0c16"
+    });
+  }
+
+  if (/shrek/.test(title)) {
+    return presetTheme({
+      name: "Conto de fadas do pântano",
+      scene: "pântano verde, madeira rústica, brilho de conto de fadas e folhas",
+      motif: "pântano e estrelas",
+      accent: "#6b8e23",
+      accent2: "#8d6b2c"
+    });
+  }
+
+  if (/midsommar/.test(title)) {
+    return presetTheme({
+      name: "Folk horror claro",
+      scene: "flores, sol forte, coroas florais, símbolos nórdicos e campo aberto",
+      motif: "flores e símbolos",
+      accent: "#d2b246",
+      accent2: "#b85f4b"
+    });
+  }
+
+  if (/substancia|substance/.test(text)) {
+    return presetTheme({
+      name: "Body horror de laboratório",
+      scene: "líquido vermelho, laboratório clínico, formas orgânicas e reflexos frios",
+      motif: "líquido e laboratório",
+      accent: "#991b1b",
+      accent2: "#0f766e"
+    });
+  }
+
+  if (/horror|terror|assassin|killer|ghost|blood|vamp|witch|monster/.test(text)) {
+    return presetTheme({
+      name: "Terror",
+      scene: "névoa, sombras, lua, floresta escura e textura sombria",
+      motif: "lua e névoa",
+      accent: "#8b111e",
+      accent2: "#2f0f19"
+    });
+  }
+
+  if (/science fiction|sci-fi|space|future|robot|android|alien/.test(text)) {
+    return presetTheme({
+      name: "Ficção científica",
+      scene: "estrelas, planeta, interface futurista, grade e luzes frias",
+      motif: "HUD e planeta",
+      accent: "#0ea5e9",
+      accent2: "#1d4ed8"
+    });
+  }
+
+  if (/animation|family|kids|princess|fairy|magic|dragon|dreamworks|disney|pixar/.test(text)) {
+    return presetTheme({
+      name: "Fantasia lúdica",
+      scene: "brilho suave, estrelas, nuvens, formas lúdicas e cenário mágico",
+      motif: "estrelas e brilho",
+      accent: "#8b5cf6",
+      accent2: "#ec4899"
+    });
+  }
+
+  if (/romance|love|heart|relationship/.test(text)) {
+    return presetTheme({
+      name: "Romance",
+      scene: "bokeh, pétalas, brilho suave e formas delicadas",
+      motif: "pétalas",
+      accent: "#ec4899",
+      accent2: "#a855f7"
+    });
+  }
+
+  if (/action|fight|war|race|explosion|adventure/.test(text)) {
+    return presetTheme({
+      name: "Ação",
+      scene: "faíscas, linhas de velocidade, fumaça e energia intensa",
+      motif: "faíscas",
+      accent: "#f97316",
+      accent2: "#dc2626"
+    });
+  }
+
+  return presetTheme({
+    name: item?.type === "tv" ? "Série" : "Filme",
+    scene: item?.type === "tv"
+      ? "luzes cinematográficas, textura elegante e formas ligadas à série"
+      : "textura cinematográfica, brilho suave e composição ligada ao filme",
+    motif: item?.type === "tv" ? "série" : "filme",
+    accent: "#a855f7",
+    accent2: "#334155"
+  });
+}
+
+function themeForItem(item) {
+  const key = mediaItemKey(item);
+  return normalizeThemeConfig(
+    key && savedThemes[key]
+      ? savedThemes[key]
+      : suggestThemeForItem(item)
+  );
+}
+
+function attachTheme(item) {
+  if (!validMediaItem(item)) {
+    return item;
+  }
+
+  return {
+    ...item,
+    themeConfig: normalizeThemeConfig(item.themeConfig || themeForItem(item))
+  };
+}
+
+function deleteThemePreset(item) {
+  const key = mediaItemKey(item);
+
+  if (!key) {
+    return false;
+  }
+
+  if (savedThemes[key]) {
+    delete savedThemes[key];
+    saveThemePresets();
+    return true;
+  }
+
+  return false;
+}
+
+function setThemePreset(item, themeConfig) {
+  const key = mediaItemKey(item);
+
+  if (!key) {
+    return null;
+  }
+
+  savedThemes[key] = normalizeThemeConfig({
+    ...themeConfig,
+    updatedAt: new Date().toISOString(),
+    source: "manual"
+  });
+  saveThemePresets();
+  return savedThemes[key];
+}
+
 function validMediaItem(value) {
   return Boolean(
     value &&
@@ -496,13 +772,13 @@ function decorateWithSeriesProgress(item) {
         : true;
 
   if (!progress) {
-    return {
+    return attachTheme({
       ...item,
       showSeason
-    };
+    });
   }
 
-  return {
+  return attachTheme({
     ...item,
     showSeason,
     poster: progress.poster || item.poster,
@@ -512,7 +788,7 @@ function decorateWithSeriesProgress(item) {
     savedEpisode: progress.episode,
     savedSeason: progress.season,
     savedSuffix: progress.suffix
-  };
+  });
 }
 
 function commonHeaders(contentType = "application/json; charset=utf-8") {
@@ -699,7 +975,8 @@ function mediaFromTmdb(item, type, resolvedPoster = "") {
       imageUrl(item.poster_path, "w342") ||
       imageUrl(item.backdrop_path, "w500") ||
       placeholderPoster(title, type),
-    overview: String(item.overview || "").trim()
+    overview: String(item.overview || "").trim(),
+    themeConfig: null
   };
 }
 
@@ -1337,7 +1614,7 @@ async function tmdbSearch(type, query, year = "") {
     return mediaFromTmdb(entry.item, type, poster);
   });
 
-  return hydrated.map(decorateWithSeriesProgress);
+  return hydrated.map(item => item.type === "tv" ? decorateWithSeriesProgress(item) : attachTheme(item));
 }
 
 async function findBestMedia(type, query, year = "") {
@@ -1394,6 +1671,8 @@ function updateOverlay(item, suffix = "", updatedBy = "painel") {
     ? `${item.title} ${visibleExtra}`
     : item.title;
 
+  const themeConfig = normalizeThemeConfig(item.themeConfig || themeForItem(item));
+
   currentState = {
     revision: Date.now(),
     type: item.type,
@@ -1418,6 +1697,7 @@ function updateOverlay(item, suffix = "", updatedBy = "painel") {
     typeLabel: item.typeLabel || typeLabel(item.type),
     poster: String(item.poster || ""),
     overview: String(item.overview || ""),
+    themeConfig,
     updatedBy,
     updatedAt: new Date().toISOString()
   };
@@ -1821,7 +2101,7 @@ async function handleApi(request, response, url) {
   if (request.method === "POST" && url.pathname === "/api/upnext/items") {
     try {
       const body = await readJson(request);
-      let item = await hydrateMediaItem(body.item);
+      let item = attachTheme(await hydrateMediaItem(body.item));
 
       if (item?.type === "tv") {
         item = await enrichSeriesItem(item);
@@ -1931,9 +2211,11 @@ async function handleApi(request, response, url) {
       async item => {
         const hydratedItem = await hydrateMediaItem(item);
 
-        return hydratedItem.type === "tv"
-          ? enrichSeriesItem(hydratedItem)
+        const finalItem = hydratedItem.type === "tv"
+          ? await enrichSeriesItem(hydratedItem)
           : hydratedItem;
+
+        return attachTheme(finalItem);
       }
     );
 
@@ -1957,7 +2239,7 @@ async function handleApi(request, response, url) {
   if (request.method === "POST" && url.pathname === "/api/saved") {
     try {
       const body = await readJson(request);
-      let item = await hydrateMediaItem(body.item);
+      let item = attachTheme(await hydrateMediaItem(body.item));
 
       if (item?.type === "tv") {
         item = await enrichSeriesItem(item);
@@ -1969,7 +2251,7 @@ async function handleApi(request, response, url) {
 
       const key = `${item.type}:${item.tmdbId}`;
       savedItems = [
-        { ...item, savedAt: new Date().toISOString() },
+        { ...attachTheme(item), savedAt: new Date().toISOString() },
         ...savedItems.filter(entry => `${entry.type}:${entry.tmdbId}` !== key)
       ].slice(0, 200);
       saveSavedItems();
@@ -2044,7 +2326,7 @@ async function handleApi(request, response, url) {
         body.episode
       );
 
-      selected = {
+      selected = attachTheme({
         ...selected,
         showSeason:
           typeof body.showSeason === "boolean"
@@ -2052,7 +2334,7 @@ async function handleApi(request, response, url) {
             : typeof item.showSeason === "boolean"
               ? item.showSeason
               : true
-      };
+      });
 
       rememberSeriesProgress(
         selected,
@@ -2105,10 +2387,111 @@ async function handleApi(request, response, url) {
     return;
   }
 
+
+  if (request.method === "POST" && url.pathname === "/api/theme/suggest") {
+    try {
+      const body = await readJson(request);
+      let item = null;
+
+      if (validMediaItem(body.item)) {
+        item = await hydrateMediaItem(body.item);
+      } else if (validState(currentState)) {
+        item = currentState;
+      }
+
+      if (!item) {
+        throw new Error("Selecione um conteúdo primeiro");
+      }
+
+      sendJson(response, 200, {
+        ok: true,
+        theme: suggestThemeForItem(item),
+        item: attachTheme(item)
+      });
+    } catch (error) {
+      sendJson(response, 400, { ok: false, error: error.message });
+    }
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/theme/apply") {
+    try {
+      const body = await readJson(request);
+      let item = null;
+
+      if (validMediaItem(body.item)) {
+        item = await hydrateMediaItem(body.item);
+      } else if (validState(currentState)) {
+        item = currentState;
+      }
+
+      if (!item) {
+        throw new Error("Selecione um conteúdo primeiro");
+      }
+
+      const useAuto = body.reset === true || body.mode === "auto";
+      const themeConfig = useAuto
+        ? normalizeThemeConfig({
+            ...suggestThemeForItem(item),
+            mode: "auto",
+            source: "suggested",
+            updatedAt: new Date().toISOString()
+          })
+        : normalizeThemeConfig({
+            ...body.themeConfig,
+            mode: body.themeConfig?.mode || "manual",
+            source: "manual",
+            updatedAt: new Date().toISOString()
+          });
+
+      if (body.saveForItem) {
+        if (useAuto) {
+          deleteThemePreset(item);
+        } else {
+          setThemePreset(item, themeConfig);
+        }
+      }
+
+      const themedItem = attachTheme({ ...item, themeConfig });
+      let state = currentState;
+
+      if (currentState && mediaItemKey(currentState) === mediaItemKey(themedItem)) {
+        currentState = {
+          ...currentState,
+          themeConfig,
+          updatedBy: "painel tema",
+          updatedAt: new Date().toISOString(),
+          revision: Date.now()
+        };
+
+        saveState();
+        broadcastState();
+        state = currentState;
+      }
+
+      savedItems = savedItems.map(entry => (
+        mediaItemKey(entry) === mediaItemKey(themedItem)
+          ? { ...entry, themeConfig }
+          : entry
+      ));
+      saveSavedItems();
+
+      sendJson(response, 200, {
+        ok: true,
+        state,
+        item: themedItem,
+        items: savedItems.map(decorateWithSeriesProgress)
+      });
+    } catch (error) {
+      sendJson(response, 400, { ok: false, error: error.message });
+    }
+    return;
+  }
+
   if (request.method === "POST" && url.pathname === "/api/overlay") {
     try {
       const body = await readJson(request);
-      let item = await hydrateMediaItem(body.item);
+      let item = attachTheme(await hydrateMediaItem(body.item));
       let suffix = cleanSuffix(body.suffix);
 
       if (item?.type === "tv") {

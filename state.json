@@ -1,0 +1,32 @@
+{
+  "revision": 1789119022272,
+  "type": "movie",
+  "tmdbId": 42,
+  "baseTitle": "Coraline",
+  "originalTitle": "",
+  "title": "Coraline",
+  "displayTitle": "Coraline",
+  "showSeason": true,
+  "episode": null,
+  "season": null,
+  "episodeCount": 0,
+  "seasons": [],
+  "seriesPoster": "",
+  "suffix": "",
+  "year": "2009",
+  "typeLabel": "Filme",
+  "poster": "https://example.com/a.jpg",
+  "overview": "Uma garota encontra uma outra casa com botões e um gato preto.",
+  "themeConfig": {
+    "mode": "manual",
+    "name": "Coraline manual",
+    "scene": "botões, mansão cor-de-rosa e gatinho",
+    "motif": "botões",
+    "accent": "#cf7aa9",
+    "accent2": "#355c7d",
+    "source": "manual",
+    "updatedAt": "2026-09-11T09:30:22.272Z"
+  },
+  "updatedBy": "painel tema",
+  "updatedAt": "2026-09-11T09:30:22.272Z"
+}
