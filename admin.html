@@ -513,11 +513,11 @@
       return
     }
 
-    const elements=Array.isArray(item.contentElements)?item.contentElements:[];
-    const elementsHtml=elements.length
-      ? `<div class="current-elements">${elements.map(element=>`<span class="current-element">${escapeHtml(element.label||element.id)}</span>`).join("")}</div>`
-      : `<div class="current-elements-empty">Nenhum elemento específico detectado — não vou inventar elemento errado.</div>`;
-    currentEl.innerHTML=`${posterHtml(item)}<div><div class="title">${escapeHtml(item.displayTitle||item.title)}</div><div class="meta">${escapeHtml(item.typeLabel||"")}${item.year?" • "+escapeHtml(item.year):""}</div>${elementsHtml}</div>`;
+    const scenes=Array.isArray(item.sceneImages)?item.sceneImages:[];
+    const scenesHtml=scenes.length
+      ? `<div class="current-elements"><span class="current-element">${scenes.length} cena${scenes.length===1?"":"s"} encontrada${scenes.length===1?"":"s"}</span></div>`
+      : `<div class="current-elements-empty">Nenhuma cena/backdrop disponível para este título no TMDB.</div>`;
+    currentEl.innerHTML=`${posterHtml(item)}<div><div class="title">${escapeHtml(item.displayTitle||item.title)}</div><div class="meta">${escapeHtml(item.typeLabel||"")}${item.year?" • "+escapeHtml(item.year):""}</div>${scenesHtml}</div>`;
     syncEpisodeControls(item)
   }
 

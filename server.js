@@ -513,6 +513,99 @@ function elementLabels(ids) {
   return ids.map(id => ({ id, label: labels[id] || id }));
 }
 
+
+function sceneImageScore(image) {
+  if (!image || !image.file_path) return -1;
+  const width = Number(image.width || 0);
+  const height = Number(image.height || 0);
+  const aspect = Number(image.aspect_ratio || (height ? width / height : 0));
+  const wideBonus = aspect >= 1.45 ? 50 : aspect >= 1.2 ? 10 : -100;
+  return (
+    wideBonus +
+    Number(image.vote_average || 0) * 8 +
+    Math.min(Number(image.vote_count || 0), 100) +
+    Math.min(width, 3000) / 120
+  );
+}
+
+function sceneUrlsFromImages(images, limit = 6) {
+  const seen = new Set();
+  return (Array.isArray(images) ? images : [])
+    .filter(image => image && image.file_path)
+    .sort((a, b) => sceneImageScore(b) - sceneImageScore(a))
+    .map(image => imageUrl(image.file_path, "w780"))
+    .filter(url => {
+      if (!url || seen.has(url)) return false;
+      seen.add(url);
+      return true;
+    })
+    .slice(0, limit);
+}
+
+async function fetchSceneImages(item, details = null) {
+  const scenes = [];
+  const push = values => {
+    for (const url of values || []) {
+      if (url && !scenes.includes(url)) scenes.push(url);
+      if (scenes.length >= 6) break;
+    }
+  };
+
+  /*
+    Para séries, quando o episódio atual é conhecido, tenta primeiro
+    as imagens daquele episódio. Assim o fundo pode ser uma cena do EP
+    em vez de uma arte genérica da série.
+  */
+  if (item.type === "tv") {
+    const season = Number(
+      item.selectedSeason || item.savedSeason || item.season || 0
+    );
+    const episode = Number(
+      item.selectedEpisode || item.savedEpisode || item.episode || 0
+    );
+
+    if (season > 0 && episode > 0) {
+      try {
+        const episodeUrl = new URL(
+          `https://api.themoviedb.org/3/tv/${Number(item.tmdbId)}/season/${season}/episode/${episode}/images`
+        );
+        episodeUrl.searchParams.set("include_image_language", "pt,en,null");
+        const episodeImages = await fetchTmdbJson(episodeUrl);
+        push(sceneUrlsFromImages(
+          episodeImages?.stills || episodeImages?.backdrops || [],
+          4
+        ));
+      } catch (error) {
+        console.error(`[cenas-episodio] tv:${item.tmdbId}:T${season}E${episode} - ${error.message}`);
+      }
+    }
+  }
+
+  if (scenes.length < 4) {
+    let images = details?.images;
+
+    if (!images) {
+      try {
+        const imagesUrl = new URL(
+          `https://api.themoviedb.org/3/${item.type}/${Number(item.tmdbId)}/images`
+        );
+        imagesUrl.searchParams.set("include_image_language", "pt,en,null");
+        images = await fetchTmdbJson(imagesUrl);
+      } catch (error) {
+        console.error(`[cenas] ${item.type}:${item.tmdbId} - ${error.message}`);
+      }
+    }
+
+    push(sceneUrlsFromImages(images?.backdrops || [], 6));
+  }
+
+  if (scenes.length === 0 && details?.backdrop_path) {
+    push([imageUrl(details.backdrop_path, "w780")]);
+  }
+
+  return scenes.slice(0, 6);
+}
+
 async function enrichContentElements(item) {
   if (!validMediaItem(item)) return item;
 
@@ -521,11 +614,13 @@ async function enrichContentElements(item) {
   let keywords = [];
   let genres = [];
   let overview = String(item.overview || "");
+  let sceneImages = Array.isArray(item.sceneImages) ? item.sceneImages.filter(Boolean) : [];
 
   try {
     const url = new URL(`https://api.themoviedb.org/3/${item.type}/${Number(item.tmdbId)}`);
     url.searchParams.set("language", "pt-BR");
-    url.searchParams.set("append_to_response", "keywords");
+    url.searchParams.set("append_to_response", "keywords,images");
+    url.searchParams.set("include_image_language", "pt,en,null");
     details = await fetchTmdbJson(url);
     overview = String(details?.overview || overview || "");
     genres = Array.isArray(details?.genres) ? details.genres.map(g => String(g?.name || "")).filter(Boolean) : [];
@@ -533,6 +628,13 @@ async function enrichContentElements(item) {
     keywords = Array.isArray(rawKeywords) ? rawKeywords.map(k => String(k?.name || "")).filter(Boolean) : [];
   } catch (error) {
     console.error(`[elementos] ${item.type}:${item.tmdbId} - ${error.message}`);
+  }
+
+  try {
+    const foundScenes = await fetchSceneImages(item, details);
+    if (foundScenes.length) sceneImages = foundScenes;
+  } catch (error) {
+    console.error(`[cenas] ${item.type}:${item.tmdbId} - ${error.message}`);
   }
 
   const corpus = normalizeElementText([
@@ -554,7 +656,8 @@ async function enrichContentElements(item) {
     overview,
     genres,
     keywords,
-    contentElements: elementLabels(ids)
+    contentElements: elementLabels(ids),
+    sceneImages
   };
 }
 
@@ -1598,6 +1701,7 @@ function updateOverlay(item, suffix = "", updatedBy = "painel") {
     genres: Array.isArray(item.genres) ? item.genres : [],
     keywords: Array.isArray(item.keywords) ? item.keywords : [],
     contentElements: Array.isArray(item.contentElements) ? item.contentElements : [],
+    sceneImages: Array.isArray(item.sceneImages) ? item.sceneImages.filter(Boolean).slice(0, 6) : [],
     updatedBy,
     updatedAt: new Date().toISOString()
   };
