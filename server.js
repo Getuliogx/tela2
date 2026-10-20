@@ -19,7 +19,6 @@ const TMDB_BEARER = String(
 const TMDB_API_KEY = String(
   process.env.TMDB_API_KEY || "b095ccbbb185d27703d007ae0ded5f7d"
 ).trim();
-
 const STATE_FILE = path.join(__dirname, "state.json");
 const SAVED_FILE = path.join(__dirname, "saved.json");
 const PROGRESS_FILE = path.join(__dirname, "series-progress.json");
@@ -64,7 +63,7 @@ function validState(value) {
     typeof value === "object" &&
     value.title &&
     value.typeLabel &&
-    (value.type === "movie" || value.type === "tv")
+    (value.type === "movie" || value.type === "tv" || value.type === "game")
   );
 }
 
@@ -138,7 +137,7 @@ function defaultUpNext() {
 
 function upNextItemKey(item) {
   return item &&
-    (item.type === "movie" || item.type === "tv") &&
+    (item.type === "movie" || item.type === "tv" || item.type === "game") &&
     Number(item.tmdbId) > 0
       ? `${item.type}:${Number(item.tmdbId)}`
       : "";
@@ -157,7 +156,7 @@ function cleanUpNextItem(item) {
     year: String(item.year || ""),
     typeLabel: String(
       item.typeLabel ||
-      (item.type === "tv" ? "Série" : "Filme")
+      typeLabel(item.type)
     ),
     poster: String(item.poster || ""),
     seriesPoster: String(item.seriesPoster || ""),
@@ -390,7 +389,7 @@ function validMediaItem(value) {
     typeof value === "object" &&
     value.tmdbId &&
     value.title &&
-    (value.type === "movie" || value.type === "tv")
+    (value.type === "movie" || value.type === "tv" || value.type === "game")
   );
 }
 
@@ -639,7 +638,9 @@ function yearOf(item, type) {
 }
 
 function typeLabel(type) {
-  return type === "tv" ? "Série" : "Filme";
+  if (type === "tv") return "Série";
+  if (type === "game") return "Jogo";
+  return "Filme";
 }
 
 function escapeXml(value) {
@@ -653,7 +654,8 @@ function escapeXml(value) {
 
 function placeholderPoster(title, type) {
   const safeTitle = escapeXml(String(title || "Sem capa").slice(0, 42));
-  const safeType = type === "tv" ? "SÉRIE" : "FILME";
+  const safeType =
+    type === "tv" ? "SÉRIE" : type === "game" ? "JOGO" : "FILME";
   const svg = [
     '<svg xmlns="http://www.w3.org/2000/svg" width="342" height="513" viewBox="0 0 342 513">',
     '<defs>',
@@ -796,6 +798,13 @@ async function hydrateMediaItem(item) {
 
   if (String(item.poster || "").trim()) {
     return item;
+  }
+
+  if (item.type === "game") {
+    return {
+      ...item,
+      poster: placeholderPoster(item.title || "Jogo", "game")
+    };
   }
 
   const tmdbItem = {
@@ -1340,8 +1349,151 @@ async function tmdbSearch(type, query, year = "") {
   return hydrated.map(decorateWithSeriesProgress);
 }
 
+
+function ludotecaNumericId(idValue) {
+  const raw = String(idValue || "").trim();
+  const match = raw.match(/(\d+)/);
+  if (!match) return 0;
+  const num = Number(match[1]);
+  return Number.isFinite(num) && num > 0 ? num : 0;
+}
+
+function mediaFromLudoteca(detail) {
+  const title = String(
+    detail.titulo || detail.titulo_original || "Sem título"
+  ).trim();
+  const year = detail.ano ? String(detail.ano) : "";
+  const portada = detail.portada || {};
+  const poster =
+    String(portada.vertical || portada.grande || portada.horizontal || "").trim() ||
+    (portada.origen && String(portada.origen.vertical || "").trim()) ||
+    placeholderPoster(title, "game");
+
+  const numericId = ludotecaNumericId(detail.id);
+  const steamStore = Array.isArray(detail.tiendas)
+    ? detail.tiendas.find(t => t && t.clave === "steam" && t.id)
+    : null;
+  const steamId = steamStore ? Number(steamStore.id) : 0;
+
+  return {
+    tmdbId: numericId || steamId || Date.now(),
+    type: "game",
+    title,
+    originalTitle: String(detail.titulo_original || title).trim(),
+    year,
+    typeLabel: "Jogo",
+    poster,
+    overview: String(detail.descripcion || "").trim().slice(0, 500),
+    ludotecaId: String(detail.id || ""),
+    ludotecaSlug: String(detail.slug || "")
+  };
+}
+
+async function fetchLudotecaJson(url) {
+  const response = await fetch(url, {
+    headers: {
+      accept: "application/json",
+      "user-agent": "TELA2-overlay/1.0"
+    }
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(
+      `Ludoteca ${response.status}: ${text.slice(0, 120) || response.statusText}`
+    );
+  }
+
+  return response.json();
+}
+
+async function fetchLudotecaDetail(entry) {
+  const slug = String(entry.slug || "").trim();
+  const id = String(entry.id || "").trim();
+
+  try {
+    if (slug) {
+      return await fetchLudotecaJson(
+        new URL(`https://ludoteca.dev/api/v1/juego/${encodeURIComponent(slug)}`)
+      );
+    }
+  } catch {
+    // tenta por id
+  }
+
+  if (id) {
+    return fetchLudotecaJson(
+      new URL(`https://ludoteca.dev/api/v1/id/${encodeURIComponent(id)}`)
+    );
+  }
+
+  throw new Error("Ficha do jogo sem slug/id");
+}
+
+async function gameSearch(query, year = "") {
+  if (process.env.TMDB_MOCK === "1") {
+    return [
+      {
+        tmdbId: 1704,
+        type: "game",
+        title: query,
+        originalTitle: query,
+        year: year || "2022",
+        typeLabel: "Jogo",
+        poster: placeholderPoster(query, "game"),
+        overview: "Resultado de teste"
+      }
+    ];
+  }
+
+  const url = new URL("https://ludoteca.dev/api/v1/buscar");
+  url.searchParams.set("q", query);
+  url.searchParams.set("limite", "20");
+  if (year) {
+    url.searchParams.set("ano", String(year).trim());
+  }
+
+  const payload = await fetchLudotecaJson(url);
+  let entries = Array.isArray(payload.resultados) ? payload.resultados : [];
+
+  if (year) {
+    const wanted = Number(year);
+    entries = entries.filter(
+      entry => !entry.ano || Number(entry.ano) === wanted
+    );
+  }
+
+  entries = entries.slice(0, 16);
+
+  const hydrated = await mapLimit(entries, 4, async entry => {
+    try {
+      const detail = await fetchLudotecaDetail(entry);
+      return mediaFromLudoteca({ ...entry, ...detail });
+    } catch {
+      const title = String(entry.titulo || query).trim();
+      return {
+        tmdbId: ludotecaNumericId(entry.id) || Date.now(),
+        type: "game",
+        title,
+        originalTitle: title,
+        year: entry.ano ? String(entry.ano) : "",
+        typeLabel: "Jogo",
+        poster: placeholderPoster(title, "game"),
+        overview: "",
+        ludotecaId: String(entry.id || ""),
+        ludotecaSlug: String(entry.slug || "")
+      };
+    }
+  });
+
+  return hydrated.filter(item => item && item.title);
+}
+
 async function findBestMedia(type, query, year = "") {
-  const results = await tmdbSearch(type, query, year);
+  const results =
+    type === "game"
+      ? await gameSearch(query, year)
+      : await tmdbSearch(type, query, year);
   if (!results.length) throw new Error("Título não encontrado");
   return results[0];
 }
@@ -1355,7 +1507,7 @@ function cleanSuffix(value) {
 
 function updateOverlay(item, suffix = "", updatedBy = "painel") {
   if (!validMediaItem(item)) {
-    throw new Error("Filme ou série inválido");
+    throw new Error("Filme, série ou jogo inválido");
   }
 
   let extra = cleanSuffix(suffix);
@@ -1905,7 +2057,9 @@ async function handleApi(request, response, url) {
   }
 
   if (request.method === "GET" && url.pathname === "/api/search") {
-    const type = url.searchParams.get("type") === "tv" ? "tv" : "movie";
+    const requested = String(url.searchParams.get("type") || "movie").toLowerCase();
+    const type =
+      requested === "tv" ? "tv" : requested === "game" ? "game" : "movie";
     const query = String(url.searchParams.get("q") || "").trim();
     const year = String(url.searchParams.get("year") || "").trim();
 
@@ -1915,7 +2069,10 @@ async function handleApi(request, response, url) {
     }
 
     try {
-      const results = await tmdbSearch(type, query, year);
+      const results =
+        type === "game"
+          ? await gameSearch(query, year)
+          : await tmdbSearch(type, query, year);
       sendJson(response, 200, { ok: true, results });
     } catch (error) {
       lastError = error.message;
@@ -2253,6 +2410,30 @@ async function handleApi(request, response, url) {
 
         lastCommand = {
           command: "!ts",
+          result: state.title,
+          user: username,
+          at: new Date().toISOString()
+        };
+
+        lastError = null;
+        sendJson(response, 200, { ok: true, state });
+        return;
+      }
+
+      argument = commandArgument(rawCommand, "!tj");
+
+      if (argument !== null) {
+        const parsed = parseTitleAndYear(argument);
+
+        if (!parsed) {
+          throw new Error("Use !tj seguido do nome do jogo");
+        }
+
+        const item = await findBestMedia("game", parsed.title, parsed.year || "");
+        const state = updateOverlay(item, "", username);
+
+        lastCommand = {
+          command: "!tj",
           result: state.title,
           user: username,
           at: new Date().toISOString()

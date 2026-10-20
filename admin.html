@@ -100,9 +100,9 @@
   </section>
 
   <section class="panel">
-    <h2>Pesquisar filme ou série</h2>
+    <h2>Pesquisar filme, série ou jogo</h2>
     <form id="searchForm" class="grid-form">
-      <select id="type" class="field"><option value="movie">Filme</option><option value="tv">Série</option></select>
+      <select id="type" class="field"><option value="movie">Filme</option><option value="tv">Série</option><option value="game">Jogo</option></select>
       <input id="query" class="field query" placeholder="Digite o nome" autocomplete="off" required>
       <input id="year" class="field" inputmode="numeric" maxlength="4" placeholder="Ano">
       <button class="primary search-btn" type="submit">Pesquisar <span class="spinner">…</span></button>
@@ -110,7 +110,7 @@
     <div class="row" style="margin-top:10px">
       <input id="adminPassword" class="field password" type="password" placeholder="Senha do painel (se configurada)">
     </div>
-    <div class="hint">“Atualizar overlay” troca o título. Para séries, episódio e temporada ficam nos controles automáticos acima.</div>
+    <div class="hint">“Atualizar overlay” troca o título. Para séries, episódio e temporada ficam nos controles automáticos acima. Jogos usam a Ludoteca (multiplataforma, sem chave).</div>
     <div id="results" class="results"><div class="empty">Faça uma pesquisa.</div></div>
   </section>
 
@@ -298,7 +298,7 @@
       ${posterHtml(item)}
       <div class="card-body">
         <div class="card-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
-        <div class="card-meta">${escapeHtml(item.typeLabel||(item.type==="tv"?"Série":"Filme"))}${item.year?" • "+escapeHtml(item.year):""}${progress}</div>
+        <div class="card-meta">${escapeHtml(item.typeLabel||(item.type==="tv"?"Série":item.type==="game"?"Jogo":"Filme"))}${item.year?" • "+escapeHtml(item.year):""}${progress}</div>
         ${seriesControlsHtml(item,savedMode)}
         <div class="card-actions">
           <button class="primary small" data-action="update" data-key="${escapeHtml(keyOf(item))}">Atualizar overlay</button>

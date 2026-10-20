@@ -110,3 +110,18 @@ a cada segundo. Assim:
 - vários itens são trocados automaticamente pelo tempo de exibição;
 - não depende de o timer JavaScript do StreamElements continuar perfeitamente
   sincronizado por 50 minutos.
+
+
+## Suporte a jogos
+
+O painel pesquisa **jogos** multiplataforma (Steam, PlayStation, Xbox, Nintendo e outros).
+
+- No admin, escolha **Jogo** no seletor de tipo.
+- A busca usa a **Ludoteca** (`https://ludoteca.dev`) — sem chave e sem cadastro.
+- Cobre dezenas de milhares de jogos com capa vertical quando disponível.
+- Comando de chat: `!tj nome do jogo` (ex.: `!tj Elden Ring` ou `!tj The Last of Us`).
+- Filmes e séries continuam iguais (`!tf` / `!ts`).
+
+> Observação: nenhuma API gratuita e sem cadastro cobre *literalmente todos* os jogos do mundo.
+> A Ludoteca é a melhor opção sem e-mail (multiplataforma). Bases maiores como RAWG/IGDB exigem chave.
+
