@@ -114,14 +114,11 @@ a cada segundo. Assim:
 
 ## Suporte a jogos
 
-O painel pesquisa **jogos** multiplataforma (Steam, PlayStation, Xbox, Nintendo e outros).
+O painel agora pesquisa **jogos** além de filmes e séries.
 
 - No admin, escolha **Jogo** no seletor de tipo.
-- A busca usa a **Ludoteca** (`https://ludoteca.dev`) — sem chave e sem cadastro.
-- Cobre dezenas de milhares de jogos com capa vertical quando disponível.
-- Comando de chat: `!tj nome do jogo` (ex.: `!tj Elden Ring` ou `!tj The Last of Us`).
+- A busca usa a API do **RAWG** (`https://rawg.io`).
+- Configure a variável de ambiente `RAWG_API_KEY` no Render (chave gratuita em https://rawg.io/apidocs).
+- Comando de chat: `!tj nome do jogo` (ex.: `!tj Elden Ring`).
 - Filmes e séries continuam iguais (`!tf` / `!ts`).
-
-> Observação: nenhuma API gratuita e sem cadastro cobre *literalmente todos* os jogos do mundo.
-> A Ludoteca é a melhor opção sem e-mail (multiplataforma). Bases maiores como RAWG/IGDB exigem chave.
 

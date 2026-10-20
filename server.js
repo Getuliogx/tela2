@@ -19,6 +19,8 @@ const TMDB_BEARER = String(
 const TMDB_API_KEY = String(
   process.env.TMDB_API_KEY || "b095ccbbb185d27703d007ae0ded5f7d"
 ).trim();
+const RAWG_API_KEY = String(process.env.RAWG_API_KEY || "").trim();
+
 const STATE_FILE = path.join(__dirname, "state.json");
 const SAVED_FILE = path.join(__dirname, "saved.json");
 const PROGRESS_FILE = path.join(__dirname, "series-progress.json");
@@ -1349,96 +1351,60 @@ async function tmdbSearch(type, query, year = "") {
   return hydrated.map(decorateWithSeriesProgress);
 }
 
-
-function ludotecaNumericId(idValue) {
-  const raw = String(idValue || "").trim();
-  const match = raw.match(/(\d+)/);
-  if (!match) return 0;
-  const num = Number(match[1]);
-  return Number.isFinite(num) && num > 0 ? num : 0;
-}
-
-function mediaFromLudoteca(detail) {
-  const title = String(
-    detail.titulo || detail.titulo_original || "Sem título"
-  ).trim();
-  const year = detail.ano ? String(detail.ano) : "";
-  const portada = detail.portada || {};
+function mediaFromRawg(item) {
+  const title = String(item.name || "Sem título").trim();
+  const released = String(item.released || "").trim();
+  const year = released ? released.slice(0, 4) : "";
   const poster =
-    String(portada.vertical || portada.grande || portada.horizontal || "").trim() ||
-    (portada.origen && String(portada.origen.vertical || "").trim()) ||
+    String(item.background_image || "").trim() ||
     placeholderPoster(title, "game");
 
-  const numericId = ludotecaNumericId(detail.id);
-  const steamStore = Array.isArray(detail.tiendas)
-    ? detail.tiendas.find(t => t && t.clave === "steam" && t.id)
-    : null;
-  const steamId = steamStore ? Number(steamStore.id) : 0;
-
   return {
-    tmdbId: numericId || steamId || Date.now(),
+    tmdbId: Number(item.id),
     type: "game",
     title,
-    originalTitle: String(detail.titulo_original || title).trim(),
+    originalTitle: title,
     year,
     typeLabel: "Jogo",
     poster,
-    overview: String(detail.descripcion || "").trim().slice(0, 500),
-    ludotecaId: String(detail.id || ""),
-    ludotecaSlug: String(detail.slug || "")
+    overview: String(item.slug || "").trim()
   };
 }
 
-async function fetchLudotecaJson(url) {
+async function fetchRawgJson(url) {
+  if (!RAWG_API_KEY) {
+    throw new Error(
+      "RAWG_API_KEY não configurada. Defina a variável de ambiente RAWG_API_KEY (grátis em rawg.io/apidocs)."
+    );
+  }
+
+  if (!url.searchParams.has("key")) {
+    url.searchParams.set("key", RAWG_API_KEY);
+  }
+
   const response = await fetch(url, {
-    headers: {
-      accept: "application/json",
-      "user-agent": "TELA2-overlay/1.0"
-    }
+    headers: { accept: "application/json" }
   });
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
     throw new Error(
-      `Ludoteca ${response.status}: ${text.slice(0, 120) || response.statusText}`
+      `RAWG ${response.status}: ${text.slice(0, 120) || response.statusText}`
     );
   }
 
   return response.json();
 }
 
-async function fetchLudotecaDetail(entry) {
-  const slug = String(entry.slug || "").trim();
-  const id = String(entry.id || "").trim();
-
-  try {
-    if (slug) {
-      return await fetchLudotecaJson(
-        new URL(`https://ludoteca.dev/api/v1/juego/${encodeURIComponent(slug)}`)
-      );
-    }
-  } catch {
-    // tenta por id
-  }
-
-  if (id) {
-    return fetchLudotecaJson(
-      new URL(`https://ludoteca.dev/api/v1/id/${encodeURIComponent(id)}`)
-    );
-  }
-
-  throw new Error("Ficha do jogo sem slug/id");
-}
-
-async function gameSearch(query, year = "") {
+async function rawgSearch(query, year = "") {
   if (process.env.TMDB_MOCK === "1") {
     return [
       {
-        tmdbId: 1704,
+        tmdbId: 3498,
         type: "game",
         title: query,
         originalTitle: query,
-        year: year || "2022",
+        year: year || "2013",
         typeLabel: "Jogo",
         poster: placeholderPoster(query, "game"),
         overview: "Resultado de teste"
@@ -1446,53 +1412,25 @@ async function gameSearch(query, year = "") {
     ];
   }
 
-  const url = new URL("https://ludoteca.dev/api/v1/buscar");
-  url.searchParams.set("q", query);
-  url.searchParams.set("limite", "20");
-  if (year) {
-    url.searchParams.set("ano", String(year).trim());
-  }
-
-  const payload = await fetchLudotecaJson(url);
-  let entries = Array.isArray(payload.resultados) ? payload.resultados : [];
+  const url = new URL("https://api.rawg.io/api/games");
+  url.searchParams.set("search", query);
+  url.searchParams.set("page_size", "20");
+  url.searchParams.set("page", "1");
 
   if (year) {
-    const wanted = Number(year);
-    entries = entries.filter(
-      entry => !entry.ano || Number(entry.ano) === wanted
-    );
+    url.searchParams.set("dates", `${year}-01-01,${year}-12-31`);
   }
 
-  entries = entries.slice(0, 16);
+  const payload = await fetchRawgJson(url);
+  const results = Array.isArray(payload.results) ? payload.results : [];
 
-  const hydrated = await mapLimit(entries, 4, async entry => {
-    try {
-      const detail = await fetchLudotecaDetail(entry);
-      return mediaFromLudoteca({ ...entry, ...detail });
-    } catch {
-      const title = String(entry.titulo || query).trim();
-      return {
-        tmdbId: ludotecaNumericId(entry.id) || Date.now(),
-        type: "game",
-        title,
-        originalTitle: title,
-        year: entry.ano ? String(entry.ano) : "",
-        typeLabel: "Jogo",
-        poster: placeholderPoster(title, "game"),
-        overview: "",
-        ludotecaId: String(entry.id || ""),
-        ludotecaSlug: String(entry.slug || "")
-      };
-    }
-  });
-
-  return hydrated.filter(item => item && item.title);
+  return results.map(mediaFromRawg).filter(item => Number(item.tmdbId) > 0);
 }
 
 async function findBestMedia(type, query, year = "") {
   const results =
     type === "game"
-      ? await gameSearch(query, year)
+      ? await rawgSearch(query, year)
       : await tmdbSearch(type, query, year);
   if (!results.length) throw new Error("Título não encontrado");
   return results[0];
@@ -2071,7 +2009,7 @@ async function handleApi(request, response, url) {
     try {
       const results =
         type === "game"
-          ? await gameSearch(query, year)
+          ? await rawgSearch(query, year)
           : await tmdbSearch(type, query, year);
       sendJson(response, 200, { ok: true, results });
     } catch (error) {
